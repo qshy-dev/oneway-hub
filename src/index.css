@@ -1,0 +1,198 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Inter', system-ui, sans-serif;
+  --accent: #9146ff;
+  --accent-300: 191 127 255;
+  --accent-400: 169 112 255;
+  --accent-500: 145 70 255;
+  --accent-600: 124 43 191;
+  --accent-700: 100 27 192;
+  --accent-rgb: 145, 70, 255;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #0c0c0e;
+}
+
+/* Fixed full-site grid background. Sits above the root bg but below all
+   content, so it stays visible behind translucent panels. */
+.site-grid {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.006) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.006) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse at center, black 25%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 25%, transparent 75%);
+}
+
+button:focus,
+button:focus-visible {
+  outline: none;
+}
+button:focus-visible {
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.5);
+}
+
+code,
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Range slider */
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 9999px;
+  background: #2a2a2e;
+  outline: none;
+  cursor: pointer;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #e8e6e1;
+  border: 2px solid #0c0c0e;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  background: rgb(var(--accent-500));
+}
+
+.slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #e8e6e1;
+  border: 2px solid #0c0c0e;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.slider::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  background: rgb(var(--accent-500));
+}
+
+/* Hide number input spinners */
+.gw-no-spin::-webkit-outer-spin-button,
+.gw-no-spin::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.gw-no-spin[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0c0c0e;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2a2e;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3a3e;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out;
+}
+
+/* Idle slow rotation for the wheel when not spinning */
+@keyframes idle-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.idle-rotate {
+  animation: idle-rotate 90s linear infinite;
+}
+
+/* Pulsing light ring around the wheel (idle) — emits accent-colored light */
+@keyframes idle-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 16px 2px rgba(var(--accent-rgb), 0.08),
+      0 0 36px 6px rgba(var(--accent-rgb), 0.04),
+      inset 0 0 14px 1px rgba(var(--accent-rgb), 0.03);
+    opacity: 1;
+  }
+  50% {
+    box-shadow:
+      0 0 24px 5px rgba(var(--accent-rgb), 0.14),
+      0 0 56px 12px rgba(var(--accent-rgb), 0.07),
+      inset 0 0 20px 2px rgba(var(--accent-rgb), 0.05);
+    opacity: 1;
+  }
+}
+.idle-glow {
+  animation: idle-glow 3.2s ease-in-out infinite;
+}
+
+@keyframes idle-ring {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.6; }
+}
+.idle-ring {
+  animation: idle-ring 3.2s ease-in-out infinite;
+}
+
+/* Pulsing spin button while spinning */
+@keyframes spin-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.28),
+                0 0 18px 2px rgba(var(--accent-rgb), 0.18);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(var(--accent-rgb), 0),
+                0 0 26px 4px rgba(var(--accent-rgb), 0.30);
+  }
+}
+.spin-pulse {
+  animation: spin-pulse 1.4s ease-in-out infinite;
+}
+
+/* Subtle proximity parallax. useParallax sets an inline transform on each
+   element based on cursor distance; the transition smooths the in/out. */
+.parallax {
+  transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+/* Logo hover wiggle */
+@keyframes logo-wiggle {
+  0% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(-12deg) scale(1.12); }
+  50% { transform: rotate(10deg) scale(1.12); }
+  75% { transform: rotate(-6deg) scale(1.06); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+.logo-wiggle:hover svg {
+  animation: logo-wiggle 0.6s ease-in-out;
+}
