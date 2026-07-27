@@ -1,12 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Crosshair as CrosshairIcon, Dices, Settings as SettingsIcon, Gift, PanelLeftClose, PanelLeftOpen, GalleryHorizontal, Disc } from 'lucide-react';
-import { SpeedInsights } from '@vercel/speed-insights/react';
-import { Analytics } from '@vercel/analytics/react';
 import { Roulette } from '@/components/Roulette';
 import { Settings } from '@/components/Settings';
 import { Giveaways } from '@/components/giveaways/Giveaways';
 import { Home } from '@/components/Home';
-import { SiteSettingsModal } from '@/components/SiteSettingsModal';
+import { SiteSettings } from '@/components/SiteSettings';
 import { CursorGlow } from '@/components/CursorGlow';
 import { I18nProvider, useI18n } from '@/i18n';
 import { useSettings, SettingsProvider } from '@/lib/settings';
@@ -15,7 +13,7 @@ import { UserCrosshairsProvider, useUserCrosshairsCtx } from '@/lib/userCrosshai
 import { type ProCrosshair } from '@/data/proCrosshairs';
 import { type Crosshair } from 'csgo-sharecode';
 
-type Section = 'home' | 'roulette' | 'giveaways';
+type Section = 'home' | 'roulette' | 'giveaways' | 'settings';
 type RouletteTab = 'roulette' | 'settings';
 type RouletteMode = 'horizontal' | 'wheel';
 interface WinRecord { player: string; code: string; }
@@ -29,7 +27,7 @@ function AppInner() {
   const [rouletteTab, setRouletteTab] = useState<RouletteTab>('roulette');
   const [rouletteMode, setRouletteMode] = useState<RouletteMode>('horizontal');
   const [history, setHistory] = useState<WinRecord[]>([]);
-  const [siteSettingsOpen, setSiteSettingsOpen] = useState(false);
+  const [logoSpin, setLogoSpin] = useState(0);
 
   useParallax();
 
@@ -56,18 +54,21 @@ function AppInner() {
       <CursorGlow />
       {/* Sidebar — in flow so it pushes content, no overlap */}
       <aside
-        className={`sticky top-0 flex h-screen shrink-0 flex-col overflow-hidden border-r border-ink-800/60 bg-ink-950/60 backdrop-blur-xl transition-[width] duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${sidebarWidth}`}
+        className={`sticky top-0 flex h-screen shrink-0 flex-col overflow-hidden border-r border-ink-800/40 bg-ink-950/30 backdrop-blur-md transition-[width] duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${sidebarWidth}`}
       >
         {/* Logo */}
         <div className="flex h-16 shrink-0 items-center border-b border-ink-800/60 px-4">
           <button
-            onClick={() => setSection('home')}
+            onClick={() => { setSection('home'); setLogoSpin((v) => v + 360); }}
             className="group flex items-center gap-3 rounded-lg transition-transform duration-150 active:scale-90"
             title={t('site_title')}
           >
             <div className="parallax parallax-logo shrink-0">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-ink-700 bg-ink-900 transition-transform duration-500 ease-out group-hover:rotate-180 group-hover:scale-110 group-active:rotate-0 group-active:scale-95">
-                <CrosshairIcon className="h-5 w-5 text-accent-500 transition-colors duration-300 group-hover:text-accent-400" strokeWidth={2} />
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-ink-700 bg-ink-900 transition-transform duration-700 ease-out"
+                style={{ transform: `rotate(${logoSpin}deg)` }}
+              >
+                <CrosshairIcon className="h-5 w-5 text-accent-500 transition-transform duration-500 group-hover:scale-110" strokeWidth={2} />
               </div>
             </div>
             <h1 className={`min-w-0 overflow-hidden whitespace-nowrap text-base font-extrabold leading-none tracking-tight transition-[max-width,opacity] duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${collapsed ? 'max-w-0 opacity-0' : 'max-w-[180px] opacity-100'}`}>
@@ -99,9 +100,9 @@ function AppInner() {
           <SidebarItem
             icon={<SettingsIcon className="h-5 w-5" />}
             label={t('settings_button')}
-            active={false}
+            active={section === 'settings'}
             collapsed={collapsed}
-            onClick={() => setSiteSettingsOpen(true)}
+            onClick={() => setSection('settings')}
           />
         </div>
 
@@ -123,13 +124,15 @@ function AppInner() {
       {/* Main — takes remaining space; content centers within it */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar */}
-        <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-ink-800/60 bg-ink-950/60 px-6 backdrop-blur-xl">
+        <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-ink-800/40 bg-ink-950/30 px-6 backdrop-blur-md">
           <h2 className="text-lg font-bold text-ink-200">
             {section === 'roulette'
               ? t('section_roulette')
               : section === 'giveaways'
                 ? t('section_giveaways')
-                : ''}
+                : section === 'settings'
+                  ? t('site_settings')
+                  : ''}
           </h2>
 
           {/* Centered mode switcher — absolute so it centers relative to the main content area, which shifts with the sidebar animation. Visible in both roulette and settings tabs; clicking a mode returns to the roulette. Active state is cleared when settings is open. */}
@@ -165,8 +168,8 @@ function AppInner() {
 
         {/* Content — all sections stay mounted (hidden when inactive) so state is preserved across switches */}
         <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-6 py-8 min-h-0">
-          <div className={section === 'home' ? 'block' : 'hidden'}>
-            <Home onNavigate={setSection} />
+          <div className={section === 'home' ? 'flex flex-1 flex-col min-h-0' : 'hidden'}>
+            <Home onNavigate={setSection} active={section === 'home'} />
           </div>
 
           <div className={section === 'roulette' ? 'flex flex-1 flex-col min-h-0' : 'hidden'}>
@@ -177,6 +180,7 @@ function AppInner() {
                 history={history}
                 includeRandom={prefs.includeRandom}
                 mode={rouletteMode}
+                sidebarCollapsed={collapsed}
               />
             </div>
             <div className={rouletteTab === 'settings' ? 'block' : 'hidden'}>
@@ -187,10 +191,14 @@ function AppInner() {
           <div className={section === 'giveaways' ? 'block' : 'hidden'}>
             <Giveaways />
           </div>
+
+          <div className={section === 'settings' ? 'block' : 'hidden'}>
+            <SiteSettings />
+          </div>
         </main>
 
         {/* Footer */}
-        <footer className="flex h-[57px] shrink-0 items-center border-t border-ink-800/60 bg-ink-950/60 px-3 backdrop-blur-xl">
+        <footer className="flex h-[57px] shrink-0 items-center border-t border-ink-800/40 bg-ink-950/30 px-3 backdrop-blur-md">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-2 gap-y-1 px-1 text-center text-sm">
             <span className="text-ink-600">
               {t('made_for')}{' '}
@@ -213,7 +221,6 @@ function AppInner() {
         </footer>
       </div>
 
-      {siteSettingsOpen && <SiteSettingsModal onClose={() => setSiteSettingsOpen(false)} />}
     </div>
   );
 }
@@ -224,8 +231,6 @@ export default function App() {
       <SettingsProvider>
         <UserCrosshairsProvider>
           <AppInner />
-          <SpeedInsights />
-          <Analytics />
         </UserCrosshairsProvider>
       </SettingsProvider>
     </I18nProvider>

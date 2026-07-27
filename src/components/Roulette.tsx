@@ -13,9 +13,10 @@ interface RouletteProps {
   history: { player: string; code: string }[];
   includeRandom: boolean;
   mode: RouletteMode;
+  sidebarCollapsed: boolean;
 }
 
-export function Roulette({ items, onWin, history, includeRandom, mode }: RouletteProps) {
+export function Roulette({ items, onWin, history, includeRandom, mode, sidebarCollapsed }: RouletteProps) {
   const { t } = useI18n();
   const { loading } = useUserCrosshairsCtx();
 
@@ -26,7 +27,7 @@ export function Roulette({ items, onWin, history, includeRandom, mode }: Roulett
         {mode === 'horizontal' ? (
           <HorizontalRoulette items={items} onWin={onWin} history={history} includeRandom={includeRandom} />
         ) : mode === 'wheel' ? (
-          <WheelRoulette items={items} onWin={onWin} history={history} includeRandom={includeRandom} />
+          <WheelRoulette items={items} onWin={onWin} history={history} includeRandom={includeRandom} sidebarCollapsed={sidebarCollapsed} />
         ) : null}
         </div>
       ) : (

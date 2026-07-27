@@ -149,6 +149,10 @@ export function Giveaways() {
           setWinner(p);
           collectEndRef.current = Date.now();
           setPhase('finished');
+          pendingWinnerRef.current = p;
+          setModalParticipant(p);
+          setModalIsWinner(true);
+          setAutoStartTimer(true);
           addLog(t('gw_log_winner', p.displayName), 'event');
         },
         t,
@@ -629,7 +633,7 @@ export function Giveaways() {
 
       {/* Roulette / result */}
       <AnimatePresence>
-        {(phase === 'finished' || winner) && participants.length > 0 && (
+        {modeId !== 'guessNumber' && (phase === 'finished' || winner) && participants.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}

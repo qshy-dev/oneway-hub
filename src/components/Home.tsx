@@ -1,18 +1,113 @@
-import { Crosshair as CrosshairIcon, Dices, Gift, ArrowRight } from 'lucide-react';
+import { useState, useLayoutEffect, useRef } from 'react';
+import { Crosshair as CrosshairIcon, Dices, Gift, ArrowRight, Info, Map, CheckCircle2, Loader2, Circle, ChevronDown } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useI18n } from '@/i18n';
 import { useTypewriter } from '@/lib/useTypewriter';
 
-export function Home({ onNavigate }: { onNavigate: (s: 'roulette' | 'giveaways') => void }) {
+type RoadmapStatus = 'done' | 'wip' | 'planned';
+
+export function Home({ onNavigate, active }: { onNavigate: (s: 'roulette' | 'giveaways') => void; active: boolean }) {
   const { t } = useI18n();
   const { display: typedTitle, done: titleDone } = useTypewriter(t('site_title'), { speed: 110, typoChance: 18 });
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [roadmapOpen, setRoadmapOpen] = useState(false);
+  const [logoSpin, setLogoSpin] = useState(0);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [naturalHeight, setNaturalHeight] = useState(0);
+  const [transitionEnabled, setTransitionEnabled] = useState(false);
+  const isFirstRender = useRef(true);
+
+  const fitEnabled = active && !aboutOpen && !roadmapOpen;
+
+  useLayoutEffect(() => {
+    if (!fitEnabled) {
+      setScale(1);
+      return;
+    }
+
+    const container = containerRef.current;
+    const content = contentRef.current;
+    if (!container || !content) return;
+
+    const doMeasure = () => {
+      const nh = content.offsetHeight;
+      setNaturalHeight(nh);
+      const avail = container.clientHeight;
+      setScale(avail < nh ? avail / nh : 1);
+    };
+
+    if (isFirstRender.current) {
+      doMeasure();
+      isFirstRender.current = false;
+      // Enable transitions only after the initial fit so it doesn't animate on load
+      requestAnimationFrame(() => setTransitionEnabled(true));
+      return;
+    }
+
+    // Wait for framer-motion exit animation to complete, then re-fit and scroll up
+    const timeoutId = window.setTimeout(() => {
+      doMeasure();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 350);
+
+    return () => clearTimeout(timeoutId);
+  }, [fitEnabled]);
+
+  const roadmapItems: { label: string; status: RoadmapStatus }[] = [
+    { label: t('home_roadmap_item_1'), status: 'done' },
+    { label: t('home_roadmap_item_2'), status: 'done' },
+    { label: t('home_roadmap_item_3'), status: 'done' },
+    { label: t('home_roadmap_item_4'), status: 'done' },
+    { label: t('home_roadmap_item_5'), status: 'done' },
+    { label: t('home_roadmap_item_6'), status: 'done' },
+    { label: t('home_roadmap_item_7'), status: 'done' },
+    { label: t('home_roadmap_item_8'), status: 'wip' },
+    { label: t('home_roadmap_item_9'), status: 'planned' },
+    { label: t('home_roadmap_item_10'), status: 'planned' },
+    { label: t('home_roadmap_item_11'), status: 'planned' },
+    { label: t('home_roadmap_item_12'), status: 'planned' },
+    { label: t('home_roadmap_item_13'), status: 'planned' },
+    { label: t('home_roadmap_item_14'), status: 'planned' },
+    { label: t('home_roadmap_item_15'), status: 'planned' },
+    { label: t('home_roadmap_item_16'), status: 'planned' },
+  ];
 
   return (
-    <div className="flex flex-col items-center text-center">
+    <div
+      ref={containerRef}
+      className="flex flex-1 flex-col items-center justify-center min-h-0"
+    >
+      <div
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: 'top center',
+          width: '100%',
+          marginBottom:
+            fitEnabled && naturalHeight > 0 && scale < 1
+              ? -(naturalHeight * (1 - scale))
+              : 0,
+          transition: transitionEnabled
+            ? 'transform 600ms cubic-bezier(0.22, 1, 0.36, 1), margin-bottom 600ms cubic-bezier(0.22, 1, 0.36, 1)'
+            : 'none',
+        }}
+      >
+      <div ref={contentRef} className="flex flex-col items-center text-center">
       <div className="relative mb-8 flex h-24 w-24 items-center justify-center">
-        <div className="absolute inset-0 animate-pulse rounded-full bg-accent-500/20 blur-2xl" />
-        <div className="parallax parallax-logo group relative flex h-24 w-24 items-center justify-center rounded-3xl border border-ink-700 bg-ink-900">
-          <CrosshairIcon className="h-12 w-12 text-accent-500 transition-transform duration-500 ease-out group-hover:rotate-180 group-hover:scale-110" strokeWidth={1.5} />
-        </div>
+        <div className="pointer-events-none absolute -inset-2 rounded-full bg-accent-500/20 blur-2xl" />
+        <button
+          onClick={() => setLogoSpin((v) => v + 360)}
+          className="parallax parallax-logo group relative flex h-24 w-24 items-center justify-center rounded-3xl border border-ink-700 bg-ink-900"
+          aria-label={t('site_title')}
+        >
+          <CrosshairIcon
+            className="h-12 w-12 text-accent-500 transition-transform duration-700 ease-out group-hover:scale-110"
+            strokeWidth={1.5}
+            style={{ transform: `rotate(${logoSpin}deg)` }}
+          />
+        </button>
       </div>
 
       <h1 className="max-w-2xl text-4xl font-extrabold leading-tight tracking-tight text-ink-100 sm:text-5xl">
@@ -37,14 +132,99 @@ export function Home({ onNavigate }: { onNavigate: (s: 'roulette' | 'giveaways')
           className="parallax parallax-btn group flex items-center gap-2 rounded-xl border border-ink-700 bg-ink-900 px-6 py-3 text-sm font-bold text-ink-200 transition hover:border-ink-600 hover:bg-ink-800"
         >
           <Gift className="h-4 w-4" />
-          {t('section_giveaways')}
+          {t('home_btn_giveaways')}
           <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
         </button>
       </div>
 
-      <div className="mt-16 grid w-full max-w-3xl grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="mt-10 grid w-full max-w-3xl grid-cols-1 gap-4 sm:grid-cols-2">
         <FeatureCard icon={<Dices className="h-5 w-5" />} title={t('section_roulette')} desc={t('home_feature_roulette')} />
-        <FeatureCard icon={<Gift className="h-5 w-5" />} title={t('section_giveaways')} desc={t('home_feature_giveaways')} />
+        <FeatureCard icon={<Gift className="h-5 w-5" />} title={t('home_feature_giveaways_title')} desc={t('home_feature_giveaways')} />
+      </div>
+
+      {/* About — collapsible */}
+      <div className="mt-8 w-full max-w-3xl">
+        <div className="parallax parallax-card overflow-hidden rounded-2xl border border-ink-800 bg-ink-900/40">
+          <button
+            onClick={() => setAboutOpen((v) => !v)}
+            className="flex w-full items-center gap-3 px-6 py-4 text-left transition hover:bg-ink-800/30"
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-ink-700 bg-ink-850 text-accent-400">
+              <Info className="h-4 w-4" />
+            </div>
+            <h3 className="flex-1 text-base font-bold text-ink-100">{t('home_about_title')}</h3>
+            <ChevronDown className={`h-5 w-5 shrink-0 text-ink-500 transition-transform duration-300 ${aboutOpen ? 'rotate-180' : ''}`} />
+          </button>
+          <AnimatePresence initial={false}>
+            {aboutOpen && (
+              <motion.div
+                key="about-content"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                className="overflow-hidden"
+              >
+                <p className="px-6 pt-2 pb-6 text-sm leading-relaxed text-ink-400">{t('home_about_desc')}</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
+      {/* Roadmap — collapsible */}
+      <div className="mt-6 w-full max-w-3xl">
+        <div className="parallax parallax-card overflow-hidden rounded-2xl border border-ink-800 bg-ink-900/40">
+          <button
+            onClick={() => setRoadmapOpen((v) => !v)}
+            className="flex w-full items-center gap-3 px-6 py-4 text-left transition hover:bg-ink-800/30"
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-ink-700 bg-ink-850 text-accent-400">
+              <Map className="h-4 w-4" />
+            </div>
+            <h3 className="flex-1 text-base font-bold text-ink-100">{t('home_roadmap_title')}</h3>
+            <ChevronDown className={`h-5 w-5 shrink-0 text-ink-500 transition-transform duration-300 ${roadmapOpen ? 'rotate-180' : ''}`} />
+          </button>
+          <AnimatePresence initial={false}>
+            {roadmapOpen && (
+              <motion.div
+                key="roadmap-content"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                className="overflow-hidden"
+              >
+                <div className="px-6 pt-2 pb-6">
+                  <div className="mb-4 flex flex-wrap gap-4">
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-ink-400">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> {t('home_roadmap_done')}
+                    </span>
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-ink-400">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-400" /> {t('home_roadmap_wip')}
+                    </span>
+                    <span className="flex items-center gap-1.5 text-xs font-medium text-ink-400">
+                      <Circle className="h-3.5 w-3.5 text-ink-500" /> {t('home_roadmap_planned')}
+                    </span>
+                  </div>
+
+                  <ul className="flex flex-col gap-2.5">
+                    {roadmapItems.map((item, i) => (
+                      <li key={i} className="flex items-start gap-3 rounded-lg border border-ink-800/60 bg-ink-950/40 px-3 py-2.5">
+                        {item.status === 'done' && <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />}
+                        {item.status === 'wip' && <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-amber-400" />}
+                        {item.status === 'planned' && <Circle className="mt-0.5 h-4 w-4 shrink-0 text-ink-500" />}
+                        <span className={`text-left text-sm ${item.status === 'planned' ? 'text-ink-500' : 'text-ink-300'}`}>{item.label}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+      </div>
       </div>
     </div>
   );
@@ -52,12 +232,14 @@ export function Home({ onNavigate }: { onNavigate: (s: 'roulette' | 'giveaways')
 
 function FeatureCard({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
   return (
-    <div className="parallax parallax-card rounded-2xl border border-ink-800 bg-ink-900/40 p-5 text-left">
-      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-ink-700 bg-ink-850 text-accent-400">
+    <div className="parallax parallax-card flex items-start gap-4 rounded-2xl border border-ink-800 bg-ink-900/40 p-5 text-left">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-ink-700 bg-ink-850 text-accent-400">
         {icon}
       </div>
-      <h3 className="text-sm font-bold text-ink-100">{title}</h3>
-      <p className="mt-1 text-xs leading-relaxed text-ink-500">{desc}</p>
+      <div className="min-w-0">
+        <h3 className="text-base font-bold text-ink-100">{title}</h3>
+        <p className="mt-1 text-sm leading-relaxed text-ink-400">{desc}</p>
+      </div>
     </div>
   );
 }
