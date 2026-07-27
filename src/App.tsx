@@ -4,7 +4,7 @@ import { Roulette } from '@/components/Roulette';
 import { Settings } from '@/components/Settings';
 import { Giveaways } from '@/components/giveaways/Giveaways';
 import { Home } from '@/components/Home';
-import { SiteSettingsModal } from '@/components/SiteSettingsModal';
+import { SiteSettings } from '@/components/SiteSettings';
 import { CursorGlow } from '@/components/CursorGlow';
 import { I18nProvider, useI18n } from '@/i18n';
 import { useSettings, SettingsProvider } from '@/lib/settings';
@@ -13,7 +13,7 @@ import { UserCrosshairsProvider, useUserCrosshairsCtx } from '@/lib/userCrosshai
 import { type ProCrosshair } from '@/data/proCrosshairs';
 import { type Crosshair } from 'csgo-sharecode';
 
-type Section = 'home' | 'roulette' | 'giveaways';
+type Section = 'home' | 'roulette' | 'giveaways' | 'settings';
 type RouletteTab = 'roulette' | 'settings';
 type RouletteMode = 'horizontal' | 'wheel';
 interface WinRecord { player: string; code: string; }
@@ -27,7 +27,6 @@ function AppInner() {
   const [rouletteTab, setRouletteTab] = useState<RouletteTab>('roulette');
   const [rouletteMode, setRouletteMode] = useState<RouletteMode>('horizontal');
   const [history, setHistory] = useState<WinRecord[]>([]);
-  const [siteSettingsOpen, setSiteSettingsOpen] = useState(false);
   const [logoSpin, setLogoSpin] = useState(0);
 
   useParallax();
@@ -101,9 +100,9 @@ function AppInner() {
           <SidebarItem
             icon={<SettingsIcon className="h-5 w-5" />}
             label={t('settings_button')}
-            active={false}
+            active={section === 'settings'}
             collapsed={collapsed}
-            onClick={() => setSiteSettingsOpen(true)}
+            onClick={() => setSection('settings')}
           />
         </div>
 
@@ -131,7 +130,9 @@ function AppInner() {
               ? t('section_roulette')
               : section === 'giveaways'
                 ? t('section_giveaways')
-                : ''}
+                : section === 'settings'
+                  ? t('site_settings')
+                  : ''}
           </h2>
 
           {/* Centered mode switcher — absolute so it centers relative to the main content area, which shifts with the sidebar animation. Visible in both roulette and settings tabs; clicking a mode returns to the roulette. Active state is cleared when settings is open. */}
@@ -190,6 +191,10 @@ function AppInner() {
           <div className={section === 'giveaways' ? 'block' : 'hidden'}>
             <Giveaways />
           </div>
+
+          <div className={section === 'settings' ? 'block' : 'hidden'}>
+            <SiteSettings />
+          </div>
         </main>
 
         {/* Footer */}
@@ -216,7 +221,6 @@ function AppInner() {
         </footer>
       </div>
 
-      {siteSettingsOpen && <SiteSettingsModal onClose={() => setSiteSettingsOpen(false)} />}
     </div>
   );
 }
