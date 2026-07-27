@@ -55,8 +55,8 @@ export const GuessNumberMode: GiveawayMode = {
   handleMessage(msg, ctx) {
     if (!ctx.isCollecting()) return;
     const text = msg.text.trim();
-    const guess = Number(text);
-    if (!Number.isFinite(guess)) return;
+    if (!/^\d+$/.test(text)) return;
+    const guess = parseInt(text, 10);
     const min = Number(ctx.config.min ?? 1);
     const max = Number(ctx.config.max ?? 500);
     if (guess < min || guess > max) return;

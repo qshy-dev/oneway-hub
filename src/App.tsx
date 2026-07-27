@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react';
 import { Crosshair as CrosshairIcon, Dices, Settings as SettingsIcon, Gift, PanelLeftClose, PanelLeftOpen, GalleryHorizontal, Disc } from 'lucide-react';
-import { SpeedInsights } from '@vercel/speed-insights/react';
-import { Analytics } from '@vercel/analytics/react';
 import { Roulette } from '@/components/Roulette';
 import { Settings } from '@/components/Settings';
 import { Giveaways } from '@/components/giveaways/Giveaways';
@@ -165,7 +163,7 @@ function AppInner() {
 
         {/* Content — all sections stay mounted (hidden when inactive) so state is preserved across switches */}
         <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-6 py-8 min-h-0">
-          <div className={section === 'home' ? 'block' : 'hidden'}>
+          <div className={section === 'home' ? 'flex flex-1 flex-col min-h-0 overflow-hidden' : 'hidden'}>
             <Home onNavigate={setSection} />
           </div>
 
@@ -224,8 +222,6 @@ export default function App() {
       <SettingsProvider>
         <UserCrosshairsProvider>
           <AppInner />
-          <SpeedInsights />
-          <Analytics />
         </UserCrosshairsProvider>
       </SettingsProvider>
     </I18nProvider>
