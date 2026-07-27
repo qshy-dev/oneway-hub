@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Crosshair as CrosshairIcon, Dices, Settings as SettingsIcon, Gift, PanelLeftClose, PanelLeftOpen, GalleryHorizontal, Disc } from 'lucide-react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Roulette } from '@/components/Roulette';
 import { Settings } from '@/components/Settings';
 import { Giveaways } from '@/components/giveaways/Giveaways';
@@ -222,6 +223,7 @@ export default function App() {
       <SettingsProvider>
         <UserCrosshairsProvider>
           <AppInner />
+          <SpeedInsights />
         </UserCrosshairsProvider>
       </SettingsProvider>
     </I18nProvider>
