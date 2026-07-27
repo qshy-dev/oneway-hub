@@ -28,6 +28,7 @@ function AppInner() {
   const [rouletteMode, setRouletteMode] = useState<RouletteMode>('horizontal');
   const [history, setHistory] = useState<WinRecord[]>([]);
   const [siteSettingsOpen, setSiteSettingsOpen] = useState(false);
+  const [logoSpin, setLogoSpin] = useState(0);
 
   useParallax();
 
@@ -59,13 +60,16 @@ function AppInner() {
         {/* Logo */}
         <div className="flex h-16 shrink-0 items-center border-b border-ink-800/60 px-4">
           <button
-            onClick={() => setSection('home')}
+            onClick={() => { setSection('home'); setLogoSpin((v) => v + 360); }}
             className="group flex items-center gap-3 rounded-lg transition-transform duration-150 active:scale-90"
             title={t('site_title')}
           >
             <div className="parallax parallax-logo shrink-0">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-ink-700 bg-ink-900 transition-transform duration-500 ease-out group-hover:rotate-180 group-hover:scale-110 group-active:rotate-0 group-active:scale-95">
-                <CrosshairIcon className="h-5 w-5 text-accent-500 transition-colors duration-300 group-hover:text-accent-400" strokeWidth={2} />
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-ink-700 bg-ink-900 transition-transform duration-700 ease-out"
+                style={{ transform: `rotate(${logoSpin}deg)` }}
+              >
+                <CrosshairIcon className="h-5 w-5 text-accent-500 transition-transform duration-500 group-hover:scale-110" strokeWidth={2} />
               </div>
             </div>
             <h1 className={`min-w-0 overflow-hidden whitespace-nowrap text-base font-extrabold leading-none tracking-tight transition-[max-width,opacity] duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${collapsed ? 'max-w-0 opacity-0' : 'max-w-[180px] opacity-100'}`}>
@@ -163,7 +167,7 @@ function AppInner() {
 
         {/* Content — all sections stay mounted (hidden when inactive) so state is preserved across switches */}
         <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-6 py-8 min-h-0">
-          <div className={section === 'home' ? 'flex flex-1 flex-col min-h-0 overflow-hidden' : 'hidden'}>
+          <div className={section === 'home' ? 'flex flex-1 flex-col min-h-0' : 'hidden'}>
             <Home onNavigate={setSection} />
           </div>
 

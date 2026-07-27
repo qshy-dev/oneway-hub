@@ -48,7 +48,7 @@ export function useParallax() {
           return;
         }
         const k = depth / RADIUS;
-        el.style.transform = `translate3d(${(-dx * k).toFixed(2)}px, ${(-dy * k).toFixed(2)}px, 0)`;
+        el.style.transform = `translate3d(${Math.round(-dx * k)}px, ${Math.round(-dy * k)}px, 0)`;
       });
     };
 

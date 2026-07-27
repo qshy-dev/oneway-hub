@@ -11,6 +11,7 @@ export function Home({ onNavigate }: { onNavigate: (s: 'roulette' | 'giveaways')
   const { display: typedTitle, done: titleDone } = useTypewriter(t('site_title'), { speed: 110, typoChance: 18 });
   const [aboutOpen, setAboutOpen] = useState(false);
   const [roadmapOpen, setRoadmapOpen] = useState(false);
+  const [logoSpin, setLogoSpin] = useState(0);
 
   const roadmapItems: { label: string; status: RoadmapStatus }[] = [
     { label: t('home_roadmap_item_1'), status: 'done' },
@@ -34,10 +35,18 @@ export function Home({ onNavigate }: { onNavigate: (s: 'roulette' | 'giveaways')
   return (
     <div className="flex flex-col items-center text-center">
       <div className="relative mb-8 flex h-24 w-24 items-center justify-center">
-        <div className="absolute inset-0 animate-pulse rounded-full bg-accent-500/20 blur-2xl" />
-        <div className="parallax parallax-logo group relative flex h-24 w-24 items-center justify-center rounded-3xl border border-ink-700 bg-ink-900">
-          <CrosshairIcon className="h-12 w-12 text-accent-500 transition-transform duration-500 ease-out group-hover:rotate-180 group-hover:scale-110" strokeWidth={1.5} />
-        </div>
+        <div className="pointer-events-none absolute -inset-2 rounded-full bg-accent-500/20 blur-2xl" />
+        <button
+          onClick={() => setLogoSpin((v) => v + 360)}
+          className="parallax parallax-logo group relative flex h-24 w-24 items-center justify-center rounded-3xl border border-ink-700 bg-ink-900"
+          aria-label={t('site_title')}
+        >
+          <CrosshairIcon
+            className="h-12 w-12 text-accent-500 transition-transform duration-700 ease-out group-hover:scale-110"
+            strokeWidth={1.5}
+            style={{ transform: `rotate(${logoSpin}deg)` }}
+          />
+        </button>
       </div>
 
       <h1 className="max-w-2xl text-4xl font-extrabold leading-tight tracking-tight text-ink-100 sm:text-5xl">
@@ -95,7 +104,7 @@ export function Home({ onNavigate }: { onNavigate: (s: 'roulette' | 'giveaways')
                 transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                 className="overflow-hidden"
               >
-                <p className="px-6 pb-6 text-sm leading-relaxed text-ink-400">{t('home_about_desc')}</p>
+                <p className="px-6 pt-2 pb-6 text-sm leading-relaxed text-ink-400">{t('home_about_desc')}</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -125,7 +134,7 @@ export function Home({ onNavigate }: { onNavigate: (s: 'roulette' | 'giveaways')
                 transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                 className="overflow-hidden"
               >
-                <div className="px-6 pb-6">
+                <div className="px-6 pt-2 pb-6">
                   <div className="mb-4 flex flex-wrap gap-4">
                     <span className="flex items-center gap-1.5 text-xs font-medium text-ink-400">
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> {t('home_roadmap_done')}
