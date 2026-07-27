@@ -55,7 +55,7 @@ function AppInner() {
       <CursorGlow />
       {/* Sidebar — in flow so it pushes content, no overlap */}
       <aside
-        className={`sticky top-0 flex h-screen shrink-0 flex-col overflow-hidden border-r border-ink-800/60 bg-ink-950/60 backdrop-blur-xl transition-[width] duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${sidebarWidth}`}
+        className={`sticky top-0 flex h-screen shrink-0 flex-col overflow-hidden border-r border-ink-800/40 bg-ink-950/30 backdrop-blur-md transition-[width] duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${sidebarWidth}`}
       >
         {/* Logo */}
         <div className="flex h-16 shrink-0 items-center border-b border-ink-800/60 px-4">
@@ -125,7 +125,7 @@ function AppInner() {
       {/* Main — takes remaining space; content centers within it */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar */}
-        <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-ink-800/60 bg-ink-950/60 px-6 backdrop-blur-xl">
+        <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-ink-800/40 bg-ink-950/30 px-6 backdrop-blur-md">
           <h2 className="text-lg font-bold text-ink-200">
             {section === 'roulette'
               ? t('section_roulette')
@@ -168,7 +168,7 @@ function AppInner() {
         {/* Content — all sections stay mounted (hidden when inactive) so state is preserved across switches */}
         <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-6 py-8 min-h-0">
           <div className={section === 'home' ? 'flex flex-1 flex-col min-h-0' : 'hidden'}>
-            <Home onNavigate={setSection} />
+            <Home onNavigate={setSection} active={section === 'home'} />
           </div>
 
           <div className={section === 'roulette' ? 'flex flex-1 flex-col min-h-0' : 'hidden'}>
@@ -193,7 +193,7 @@ function AppInner() {
         </main>
 
         {/* Footer */}
-        <footer className="flex h-[57px] shrink-0 items-center border-t border-ink-800/60 bg-ink-950/60 px-3 backdrop-blur-xl">
+        <footer className="flex h-[57px] shrink-0 items-center border-t border-ink-800/40 bg-ink-950/30 px-3 backdrop-blur-md">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-2 gap-y-1 px-1 text-center text-sm">
             <span className="text-ink-600">
               {t('made_for')}{' '}

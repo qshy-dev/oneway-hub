@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useLayoutEffect, useRef } from 'react';
 import { Crosshair as CrosshairIcon, Dices, Gift, ArrowRight, Info, Map, CheckCircle2, Loader2, Circle, ChevronDown } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useI18n } from '@/i18n';
@@ -6,12 +6,55 @@ import { useTypewriter } from '@/lib/useTypewriter';
 
 type RoadmapStatus = 'done' | 'wip' | 'planned';
 
-export function Home({ onNavigate }: { onNavigate: (s: 'roulette' | 'giveaways') => void }) {
+export function Home({ onNavigate, active }: { onNavigate: (s: 'roulette' | 'giveaways') => void; active: boolean }) {
   const { t } = useI18n();
   const { display: typedTitle, done: titleDone } = useTypewriter(t('site_title'), { speed: 110, typoChance: 18 });
   const [aboutOpen, setAboutOpen] = useState(false);
   const [roadmapOpen, setRoadmapOpen] = useState(false);
   const [logoSpin, setLogoSpin] = useState(0);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [naturalHeight, setNaturalHeight] = useState(0);
+  const [transitionEnabled, setTransitionEnabled] = useState(false);
+  const isFirstRender = useRef(true);
+
+  const fitEnabled = active && !aboutOpen && !roadmapOpen;
+
+  useLayoutEffect(() => {
+    if (!fitEnabled) {
+      setScale(1);
+      return;
+    }
+
+    const container = containerRef.current;
+    const content = contentRef.current;
+    if (!container || !content) return;
+
+    const doMeasure = () => {
+      const nh = content.offsetHeight;
+      setNaturalHeight(nh);
+      const avail = container.clientHeight;
+      setScale(avail < nh ? avail / nh : 1);
+    };
+
+    if (isFirstRender.current) {
+      doMeasure();
+      isFirstRender.current = false;
+      // Enable transitions only after the initial fit so it doesn't animate on load
+      requestAnimationFrame(() => setTransitionEnabled(true));
+      return;
+    }
+
+    // Wait for framer-motion exit animation to complete, then re-fit and scroll up
+    const timeoutId = window.setTimeout(() => {
+      doMeasure();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 350);
+
+    return () => clearTimeout(timeoutId);
+  }, [fitEnabled]);
 
   const roadmapItems: { label: string; status: RoadmapStatus }[] = [
     { label: t('home_roadmap_item_1'), status: 'done' },
@@ -33,7 +76,25 @@ export function Home({ onNavigate }: { onNavigate: (s: 'roulette' | 'giveaways')
   ];
 
   return (
-    <div className="flex flex-col items-center text-center">
+    <div
+      ref={containerRef}
+      className="flex flex-1 flex-col items-center justify-center min-h-0"
+    >
+      <div
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: 'top center',
+          width: '100%',
+          marginBottom:
+            fitEnabled && naturalHeight > 0 && scale < 1
+              ? -(naturalHeight * (1 - scale))
+              : 0,
+          transition: transitionEnabled
+            ? 'transform 600ms cubic-bezier(0.22, 1, 0.36, 1), margin-bottom 600ms cubic-bezier(0.22, 1, 0.36, 1)'
+            : 'none',
+        }}
+      >
+      <div ref={contentRef} className="flex flex-col items-center text-center">
       <div className="relative mb-8 flex h-24 w-24 items-center justify-center">
         <div className="pointer-events-none absolute -inset-2 rounded-full bg-accent-500/20 blur-2xl" />
         <button
@@ -163,18 +224,22 @@ export function Home({ onNavigate }: { onNavigate: (s: 'roulette' | 'giveaways')
           </AnimatePresence>
         </div>
       </div>
+      </div>
+      </div>
     </div>
   );
 }
 
 function FeatureCard({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
   return (
-    <div className="parallax parallax-card rounded-2xl border border-ink-800 bg-ink-900/40 p-5 text-left">
-      <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-ink-700 bg-ink-850 text-accent-400">
+    <div className="parallax parallax-card flex items-start gap-4 rounded-2xl border border-ink-800 bg-ink-900/40 p-5 text-left">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-ink-700 bg-ink-850 text-accent-400">
         {icon}
       </div>
-      <h3 className="text-sm font-bold text-ink-100">{title}</h3>
-      <p className="mt-1 text-xs leading-relaxed text-ink-500">{desc}</p>
+      <div className="min-w-0">
+        <h3 className="text-base font-bold text-ink-100">{title}</h3>
+        <p className="mt-1 text-sm leading-relaxed text-ink-400">{desc}</p>
+      </div>
     </div>
   );
 }
