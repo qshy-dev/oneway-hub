@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Crosshair as CrosshairIcon, Dices, Settings as SettingsIcon, Gift, PanelLeftClose, PanelLeftOpen, GalleryHorizontal, Disc } from 'lucide-react';
+import { Analytics } from '@vercel/analytics/react';
 import { Roulette } from '@/components/Roulette';
 import { Settings } from '@/components/Settings';
 import { Giveaways } from '@/components/giveaways/Giveaways';
@@ -52,6 +53,7 @@ function AppInner() {
     <div className="relative flex min-h-screen bg-ink-950 text-ink-100">
       <div className="site-grid" />
       <CursorGlow />
+      <Analytics />
       {/* Sidebar — in flow so it pushes content, no overlap */}
       <aside
         className={`sticky top-0 flex h-screen shrink-0 flex-col overflow-hidden border-r border-ink-800/60 bg-ink-950/60 backdrop-blur-xl transition-[width] duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${sidebarWidth}`}
