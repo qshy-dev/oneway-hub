@@ -32,11 +32,11 @@ export function CrosshairDetailModal({ player, code, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/80 p-4 backdrop-blur-sm"
+      className="animate-backdrop-in fixed inset-0 z-50 flex items-center justify-center bg-ink-950/80 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-ink-700 bg-ink-900 p-6"
+        className="animate-modal-in w-full max-w-md rounded-2xl border border-ink-700 bg-ink-900 p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -122,7 +122,7 @@ export function CrosshairDetailModal({ player, code, onClose }: Props) {
 
       {zoomed && ch && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-ink-950/95 p-8 backdrop-blur-sm"
+          className="animate-backdrop-in fixed inset-0 z-[60] flex items-center justify-center bg-ink-950/95 p-8 backdrop-blur-sm"
           onClick={() => setZoomed(false)}
         >
           <button

@@ -179,6 +179,7 @@ function AppInner() {
                 history={history}
                 includeRandom={prefs.includeRandom}
                 mode={rouletteMode}
+                sidebarCollapsed={collapsed}
               />
             </div>
             <div className={rouletteTab === 'settings' ? 'block' : 'hidden'}>

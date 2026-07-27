@@ -17,6 +17,7 @@ interface WheelRouletteProps {
   onWin: (player: string, code: string, crosshair: Crosshair) => void;
   history: { player: string; code: string }[];
   includeRandom: boolean;
+  sidebarCollapsed: boolean;
 }
 
 type Phase = 'idle' | 'spinning' | 'result';
@@ -67,7 +68,7 @@ function imgSizeFor(segDeg: number): number {
   return Math.max(34, Math.min(132, arcW * 0.92, maxByEdge));
 }
 
-export function WheelRoulette({ items, onWin, history, includeRandom }: WheelRouletteProps) {
+export function WheelRoulette({ items, onWin, history, includeRandom, sidebarCollapsed }: WheelRouletteProps) {
   const { t } = useI18n();
 
   const fullSectors = useMemo<Sector[]>(() => {
@@ -165,11 +166,10 @@ export function WheelRoulette({ items, onWin, history, includeRandom }: WheelRou
     if (animMode === 'spicy') {
       keyframes = [
         { transform: `rotate(${startRot}deg)`, offset: 0, easing: 'cubic-bezier(0.42,0,0.95,0.5)' },
-        { transform: `rotate(${startRot + total * 0.30}deg)`, offset: 0.22, easing: 'cubic-bezier(0.3,0.1,0.6,0.9)' },
-        { transform: `rotate(${startRot + total * 0.62}deg)`, offset: 0.40, easing: 'cubic-bezier(0.25,0.1,0.3,1)' },
-        { transform: `rotate(${startRot + total * 0.80}deg)`, offset: 0.66, easing: 'cubic-bezier(0.2,0,0.07,1)' },
-        { transform: `rotate(${startRot + total * 0.985}deg)`, offset: 0.80, easing: 'cubic-bezier(0.95,0,0.8,0.4)' },
-        { transform: `rotate(${finalRot}deg)`, offset: 1, easing: 'cubic-bezier(0.34,1.3,0.5,1)' },
+        { transform: `rotate(${startRot + total * 0.32}deg)`, offset: 0.15, easing: 'cubic-bezier(0.3,0.1,0.6,0.9)' },
+        { transform: `rotate(${startRot + total * 0.62}deg)`, offset: 0.38, easing: 'cubic-bezier(0.25,0.1,0.3,1)' },
+        { transform: `rotate(${startRot + total * 0.85}deg)`, offset: 0.68, easing: 'cubic-bezier(0.15,0,0.1,1)' },
+        { transform: `rotate(${finalRot}deg)`, offset: 1, easing: 'cubic-bezier(0.05,0,0.02,1)' },
       ];
       easing = 'linear';
     } else {
@@ -180,7 +180,7 @@ export function WheelRoulette({ items, onWin, history, includeRandom }: WheelRou
       easing = 'cubic-bezier(0.17,0.67,0.12,1)';
     }
 
-    const dur = Math.max(100, (Number(durationStr) || DEFAULT_DURATION) * 1000);
+    const dur = Math.max(500, (Number(durationStr) || DEFAULT_DURATION) * 1000);
     const anim = wheelRef.current.animate(keyframes, { duration: dur, easing, fill: 'forwards' });
     animRef.current = anim;
 
@@ -207,27 +207,29 @@ export function WheelRoulette({ items, onWin, history, includeRandom }: WheelRou
       setPhase('result');
       onWin(winItem.isRandom ? t('random_player') : winItem.player, winItem.code, ch);
 
-      if (wheelType === 'elimination') {
-        // The landed sector is eliminated (removed from the wheel)
-        const remaining = activeSectors.filter((s) => s.index !== winItem.index);
-        setEliminated((prev) => [...prev, winItem]);
-        setEliminatedModal(winItem);
-        if (remaining.length <= 1) {
-          // Last one standing is the winner — defer until eliminated modal dismissed
-          setPendingWinner(remaining[0] ?? winItem);
+      window.setTimeout(() => {
+        if (wheelType === 'elimination') {
+          // The landed sector is eliminated (removed from the wheel)
+          const remaining = activeSectors.filter((s) => s.index !== winItem.index);
+          setEliminated((prev) => [...prev, winItem]);
+          setEliminatedModal(winItem);
+          if (remaining.length <= 1) {
+            // Last one standing is the winner — defer until eliminated modal dismissed
+            setPendingWinner(remaining[0] ?? winItem);
+          } else {
+            setActiveSectors(remaining);
+          }
         } else {
-          setActiveSectors(remaining);
+          if (winItem.isRandom) setRandomReveal({ player: t('random_player'), code: winItem.code, crosshair: ch });
+          else setDetail({ player: winItem.player, code: winItem.code, crosshair: ch });
         }
-      } else {
-        if (winItem.isRandom) setRandomReveal({ player: t('random_player'), code: winItem.code, crosshair: ch });
-        else setDetail({ player: winItem.player, code: winItem.code, crosshair: ch });
-      }
+      }, 300);
     };
 
     anim.onfinish = finish;
     window.setTimeout(() => {
       setPhase((p) => { if (p === 'spinning') { finish(); return 'result'; } return p; });
-    }, dur + 600);
+    }, dur + 250);
   }, [phase, onWin, sectors, N, seg, durationStr, animMode, wheelType, activeSectors.length]);
 
   const handleConfirmWinner = () => {
@@ -314,7 +316,7 @@ export function WheelRoulette({ items, onWin, history, includeRandom }: WheelRou
 
   const idle = phase === 'idle';
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-1 min-h-0 gap-6">
       {/* Fixed settings panel — top right */}
       <div className="fixed right-4 top-20 z-50 md:right-6">
           <div className="w-80 rounded-xl border border-ink-700 bg-ink-900/60 p-5 shadow-2xl backdrop-blur-md">
@@ -402,11 +404,34 @@ export function WheelRoulette({ items, onWin, history, includeRandom }: WheelRou
           </div>
       </div>
 
+      {/* History — fixed on the left, tracks sidebar width, same top offset as settings panel */}
+      {history.length > 0 && (
+        <div
+          className="fixed z-30 hidden w-44 flex-col gap-2 md:flex"
+          style={{ top: '5rem', left: sidebarCollapsed ? '84px' : '256px', transition: 'left 600ms cubic-bezier(0.22,1,0.36,1)' }}
+        >
+          <h4 className="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">{t('recent_wins')}</h4>
+          <div className="flex max-h-[calc(100vh-280px)] flex-col gap-2 overflow-y-auto">
+            {history.slice(0, 10).map((h, i) => (
+              <button
+                key={i}
+                onClick={() => setDetail({ player: h.player, code: h.code, crosshair: decodeSafe(h.code) })}
+                className="flex items-center gap-2.5 rounded-lg border border-ink-800 bg-ink-900/50 px-2.5 py-2 transition hover:border-accent-500/50 hover:bg-ink-800"
+              >
+                <CrosshairCodePreview code={h.code} className="h-9 w-9 shrink-0" background="transparent" />
+                <span className="min-w-0 truncate text-sm font-medium text-ink-300">{h.player}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {/* Main column — wheel + eliminated */}
+      <div className="relative flex min-w-0 flex-1 flex-col gap-4">
       {/* Wheel */}
-      <div className="flex justify-center">
+      <div className="flex flex-1 min-h-0 items-center justify-center">
         <div
           className={`relative rounded-full transition-shadow duration-700 ${idle ? 'idle-glow' : ''}`}
-          style={{ width: 'min(88vw, 720px)', height: 'min(88vw, 720px)' }}
+          style={{ width: 'min(82vw, 820px, calc(100vh - 260px))', height: 'min(82vw, 820px, calc(100vh - 260px))' }}
         >
           {/* Pointer */}
           <div className="absolute left-1/2 top-[-14px] z-30 -translate-x-1/2 drop-shadow-[0_0_10px_rgba(var(--accent-rgb),0.9)]">
@@ -500,38 +525,7 @@ export function WheelRoulette({ items, onWin, history, includeRandom }: WheelRou
           </div>
         </div>
       </div>
-      {/* Elimination status */}
-      {wheelType === 'elimination' && eliminated.length > 0 && !winner && !pendingWinner && !eliminationComplete && (
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">
-            {t('eliminated')}:
-          </span>
-          {eliminated.map((s) => (
-            <span key={s.index} className="rounded-lg border border-ink-800 bg-ink-900/50 px-2.5 py-1 text-xs text-ink-400 line-through">
-              {s.isRandom ? t('random_player') : s.player}
-            </span>
-          ))}
-        </div>
-      )}
 
-      {/* History */}
-      {history.length > 0 && (
-        <div>
-          <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">{t('recent_wins')}</h4>
-          <div className="flex flex-wrap gap-3">
-            {history.slice(0, 10).map((h, i) => (
-              <button
-                key={i}
-                onClick={() => setDetail({ player: h.player, code: h.code, crosshair: decodeSafe(h.code) })}
-                className="flex items-center gap-2.5 rounded-lg border border-ink-800 bg-ink-900/50 px-3 py-2 transition hover:border-accent-500/50 hover:bg-ink-800"
-              >
-                <CrosshairCodePreview code={h.code} className="h-10 w-10" background="transparent" />
-                <span className="text-sm font-medium text-ink-300">{h.player}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {detail && <DetailModal item={detail} onClose={() => setDetail(null)} />}
       {randomReveal && (
@@ -541,11 +535,11 @@ export function WheelRoulette({ items, onWin, history, includeRandom }: WheelRou
       {/* Eliminated crosshair modal */}
       {eliminatedModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/80 p-4 backdrop-blur-sm"
+          className="animate-backdrop-in fixed inset-0 z-50 flex items-center justify-center bg-ink-950/70 p-4 backdrop-blur-sm"
           onClick={handleNextSpin}
         >
           <div
-            className="animate-fade-in relative w-full max-w-md rounded-2xl border border-red-900/50 bg-ink-900 p-8"
+            className="animate-modal-in relative w-full max-w-md rounded-2xl border border-red-900/50 bg-ink-900/80 p-8"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-5 flex flex-col items-center text-center">
@@ -571,7 +565,7 @@ export function WheelRoulette({ items, onWin, history, includeRandom }: WheelRou
             </div>
             <button
               onClick={handleNextSpin}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent-500 px-4 py-3 text-sm font-bold text-ink-100 shadow-lg transition hover:bg-accent-400"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-ink-700 bg-ink-800 px-4 py-3 text-sm font-medium text-ink-300 transition hover:bg-ink-700 hover:text-ink-100"
             >
               {pendingWinner ? (
                 <>
@@ -589,11 +583,11 @@ export function WheelRoulette({ items, onWin, history, includeRandom }: WheelRou
       {/* Reset / switch mode confirmation */}
       {(switchModeConfirm || resetConfirm) && (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-ink-950/80 p-4 backdrop-blur-sm"
+          className="animate-backdrop-in absolute inset-0 z-[60] flex items-center justify-center bg-ink-950/80 p-4 backdrop-blur-sm"
           onClick={() => { setSwitchModeConfirm(null); setResetConfirm(false); }}
         >
           <div
-            className="animate-fade-in relative w-full max-w-sm rounded-2xl border border-ink-700 bg-ink-900 p-6"
+            className="animate-modal-in relative w-full max-w-sm rounded-2xl border border-ink-700 bg-ink-900 p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="mb-2 text-center text-lg font-bold text-ink-100">
@@ -623,11 +617,11 @@ export function WheelRoulette({ items, onWin, history, includeRandom }: WheelRou
       {/* Winner modal */}
       {winner && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/80 p-4 backdrop-blur-sm"
+          className="animate-backdrop-in absolute inset-0 z-50 flex items-center justify-center bg-ink-950/80 p-4 backdrop-blur-sm"
           onClick={handleReroll}
         >
           <div
-            className="animate-fade-in relative w-full max-w-md rounded-2xl border border-accent-500/50 bg-ink-900 p-8"
+            className="animate-modal-in relative w-full max-w-md rounded-2xl border border-accent-500/50 bg-ink-900 p-8"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-5 flex flex-col items-center text-center">
@@ -668,6 +662,7 @@ export function WheelRoulette({ items, onWin, history, includeRandom }: WheelRou
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

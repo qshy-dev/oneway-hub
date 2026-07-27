@@ -162,7 +162,8 @@ export function HorizontalRoulette({ items, onWin, history, includeRandom }: Rou
   }, [phase, onWin, buildPool, items.length, includeRandom]);
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="relative flex flex-col gap-8 pb-44">
+      <div className="flex flex-col gap-8">
       {/* Wheel */}
       <div className="relative">
         <div className="pointer-events-none absolute inset-y-0 left-0 z-20 w-20 bg-gradient-to-r from-ink-950 to-transparent" />
@@ -229,14 +230,15 @@ export function HorizontalRoulette({ items, onWin, history, includeRandom }: Rou
           {phase === 'spinning' ? t('spinning') : t('spin')}
         </button>
       </div>
+      </div>
 
-      {/* History */}
+      {/* History — absolutely positioned so it doesn't shift the wheel */}
       {history.length > 0 && (
-        <div>
-          <h4 className="mb-3 text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">
+        <div className="absolute bottom-0 left-0 right-0">
+          <h4 className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">
             {t('recent_wins')}
           </h4>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap justify-center gap-3">
             {history.slice(0, 10).map((h, i) => (
               <button
                 key={i}

@@ -129,8 +129,8 @@ export function RandomReveal({
   }, [finalCode]);
 
   return (
-    <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-ink-950/90 backdrop-blur-sm">
-      <div className="flex flex-col items-center gap-5">
+    <div className="animate-backdrop-in fixed inset-0 z-50 flex items-center justify-center bg-ink-950/90 backdrop-blur-sm">
+      <div className="animate-modal-in flex flex-col items-center gap-5">
         <div className="flex items-center gap-2 text-accent-400">
           <Sparkles className="h-5 w-5 animate-pulse" />
           <span className="text-xs font-semibold uppercase tracking-[0.2em]">
@@ -162,11 +162,11 @@ export function DetailModal({
   const { t } = useI18n();
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/80 p-4 backdrop-blur-sm"
+      className="animate-backdrop-in fixed inset-0 z-50 flex items-center justify-center bg-ink-950/80 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="animate-fade-in relative w-full max-w-3xl rounded-2xl border border-ink-700 bg-ink-900 p-6"
+        className="animate-modal-in relative w-full max-w-3xl rounded-2xl border border-ink-700 bg-ink-900 p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <button
