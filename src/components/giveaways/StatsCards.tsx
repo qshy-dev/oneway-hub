@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Users, MessageSquare, Zap, Timer } from 'lucide-react';
+import { Users, MessageSquare, Zap, Timer, Plus, Minus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '@/i18n';
 
@@ -8,6 +8,8 @@ interface StatsCardsProps {
   messages: number;
   msgPerSec: number;
   timerLabel: string;
+  timerActive?: boolean;
+  onAdjustTimer?: (deltaSec: number) => void;
 }
 
 function AnimatedNumber({ value, locale }: { value: number; locale: string }) {
@@ -21,8 +23,6 @@ function AnimatedNumber({ value, locale }: { value: number; locale: string }) {
     const now = performance.now();
     const sinceLast = now - lastUpdateRef.current;
     lastUpdateRef.current = now;
-    // When updates arrive faster than the animation duration, snap instantly
-    // to avoid jitter from constantly restarting the tween.
     if (sinceLast < 400) {
       prevRef.current = to;
       setDisplay(to);
@@ -44,7 +44,7 @@ function AnimatedNumber({ value, locale }: { value: number; locale: string }) {
   return <>{display.toLocaleString(locale)}</>;
 }
 
-export function StatsCards({ participants, messages, msgPerSec, timerLabel }: StatsCardsProps) {
+export function StatsCards({ participants, messages, msgPerSec, timerLabel, timerActive, onAdjustTimer }: StatsCardsProps) {
   const { t, lang } = useI18n();
   const locale = lang === 'en' ? 'en-US' : 'ru-RU';
   const cards = [
@@ -73,11 +73,29 @@ export function StatsCards({ participants, messages, msgPerSec, timerLabel }: St
             <c.icon className={`h-4 w-4 ${c.accent}`} />
             <span className="text-xs font-semibold uppercase tracking-wider">{c.label}</span>
           </div>
-          <div className="mt-2 text-2xl font-extrabold tabular-nums text-ink-100">
-            {c.key === 'timer' ? (
-              timerLabel
-            ) : (
-              <AnimatedNumber value={Number(values[c.key])} locale={locale} />
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <span className="text-2xl font-extrabold tabular-nums text-ink-100">
+              {c.key === 'timer' ? (
+                timerLabel
+              ) : (
+                <AnimatedNumber value={Number(values[c.key])} locale={locale} />
+              )}
+            </span>
+            {c.key === 'timer' && timerActive && onAdjustTimer && (
+              <div className="flex gap-1">
+                <button
+                  onClick={() => onAdjustTimer(-60)}
+                  className="flex items-center gap-0.5 rounded-md border border-ink-700 bg-ink-800 px-1.5 py-1 text-[10px] font-semibold text-ink-300 transition hover:bg-ink-700"
+                >
+                  <Minus className="h-3 w-3" />
+                </button>
+                <button
+                  onClick={() => onAdjustTimer(60)}
+                  className="flex items-center gap-0.5 rounded-md border border-ink-700 bg-ink-800 px-1.5 py-1 text-[10px] font-semibold text-ink-300 transition hover:bg-ink-700"
+                >
+                  <Plus className="h-3 w-3" />
+                </button>
+              </div>
             )}
           </div>
         </motion.div>

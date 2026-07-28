@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useRef } from 'react';
 import { Crosshair as CrosshairIcon, Dices, Settings as SettingsIcon, Gift, PanelLeftClose, PanelLeftOpen, GalleryHorizontal, Disc, Gavel, BarChart3, UserCircle } from 'lucide-react';
 import { Roulette } from '@/components/Roulette';
 import { Settings } from '@/components/Settings';
@@ -34,6 +34,18 @@ function AppInner() {
   const [auctionTab, setAuctionTab] = useState<'auction' | 'wheel'>('auction');
   const [homeRestart, setHomeRestart] = useState(0);
   const [logoSpin, setLogoSpin] = useState(0);
+  const wheelDirtyRef = useRef(false);
+  const [pendingTabSwitch, setPendingTabSwitch] = useState<'auction' | 'wheel' | null>(null);
+  const [viewingUserId, setViewingUserId] = useState<string | null>(null);
+
+  const requestAuctionTab = (next: 'auction' | 'wheel') => {
+    if (next === auctionTab) return;
+    if (auctionTab === 'wheel' && wheelDirtyRef.current) {
+      setPendingTabSwitch(next);
+      return;
+    }
+    setAuctionTab(next);
+  };
 
   useParallax();
 
@@ -100,7 +112,7 @@ function AppInner() {
             label={t('section_profile')}
             active={section === 'profile'}
             collapsed={collapsed}
-            onClick={() => setSection('profile')}
+            onClick={() => { setViewingUserId(null); setSection('profile'); }}
           />
           <SidebarItem
             icon={<Dices className="h-5 w-5" />}
@@ -164,7 +176,7 @@ function AppInner() {
         <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-ink-800/40 bg-ink-950/30 px-6 backdrop-blur-md">
           <h2 className="text-lg font-bold text-ink-200">
             {section === 'profile'
-              ? t('profile_title')
+              ? (viewingUserId ? t('profile_title') : t('profile_title'))
               : section === 'roulette'
                 ? t('section_roulette')
                 : section === 'giveaways'
@@ -201,13 +213,13 @@ function AppInner() {
             <div className="absolute left-1/2 top-1/2 inline-flex -translate-x-1/2 -translate-y-1/2 gap-1 rounded-xl border border-ink-800 bg-ink-900/50">
               <ModeButton
                 active={auctionTab === 'auction'}
-                onClick={() => setAuctionTab('auction')}
+                onClick={() => requestAuctionTab('auction')}
                 icon={<Gavel className="h-4 w-4" />}
                 label={t('auction_tab_auction')}
               />
               <ModeButton
                 active={auctionTab === 'wheel'}
-                onClick={() => setAuctionTab('wheel')}
+                onClick={() => requestAuctionTab('wheel')}
                 icon={<Disc className="h-4 w-4" />}
                 label={t('auction_tab_wheel')}
               />
@@ -230,7 +242,7 @@ function AppInner() {
         {/* Content — all sections stay mounted (hidden when inactive) so state is preserved across switches */}
         <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-6 py-8 min-h-0">
           <div className={section === 'profile' ? 'flex flex-1 flex-col min-h-0' : 'hidden'}>
-            <Profile />
+            <Profile userId={viewingUserId} />
           </div>
 
           <div className={section === 'home' ? 'flex flex-1 flex-col min-h-0' : 'hidden'}>
@@ -254,12 +266,41 @@ function AppInner() {
           </div>
 
           <div className={section === 'giveaways' ? 'block' : 'hidden'}>
-            <Giveaways />
+            <Giveaways onViewProfile={(uid) => { setViewingUserId(uid); setSection('profile'); }} />
           </div>
 
           <div className={section === 'auction' ? 'flex flex-1 flex-col min-h-0' : 'hidden'}>
-            <Auction tab={auctionTab} />
+            <Auction tab={auctionTab} sidebarCollapsed={collapsed} wheelDirtyRef={wheelDirtyRef} />
           </div>
+
+          {pendingTabSwitch && (
+            <div
+              className="animate-backdrop-in fixed inset-0 z-[60] flex items-center justify-center bg-ink-950/80 p-4 backdrop-blur-sm"
+              onClick={() => setPendingTabSwitch(null)}
+            >
+              <div
+                className="animate-modal-in relative w-full max-w-sm rounded-2xl border border-ink-700 bg-ink-900 p-6"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 className="mb-2 text-center text-lg font-bold text-ink-100">{t('switch_mode_title')}</h3>
+                <p className="mb-6 text-center text-sm text-ink-400">{t('switch_mode_desc')}</p>
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={() => { wheelDirtyRef.current = false; setAuctionTab(pendingTabSwitch); setPendingTabSwitch(null); }}
+                    className="w-full rounded-lg bg-accent-500 px-4 py-3 text-sm font-bold text-ink-100 shadow-lg transition hover:bg-accent-400"
+                  >
+                    {t('confirm')}
+                  </button>
+                  <button
+                    onClick={() => setPendingTabSwitch(null)}
+                    className="w-full rounded-lg border border-ink-700 bg-ink-800 px-4 py-3 text-sm font-medium text-ink-300 transition hover:bg-ink-700 hover:text-ink-100"
+                  >
+                    {t('cancel')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className={section === 'statistics' ? 'block' : 'hidden'}>
             <Statistics />
@@ -298,17 +339,44 @@ function AppInner() {
   );
 }
 
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('App crashed:', error, info);
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 40, color: '#f87171', fontFamily: 'monospace', fontSize: 14, whiteSpace: 'pre-wrap' }}>
+          <h2 style={{ fontSize: 18, marginBottom: 16 }}>App crashed:</h2>
+          <div>{this.state.error.message}</div>
+          <div style={{ marginTop: 16, opacity: 0.7 }}>{this.state.error.stack}</div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   return (
-    <I18nProvider>
-      <SettingsProvider>
-        <AuthProvider>
-          <UserCrosshairsProvider>
-            <AppInner />
-          </UserCrosshairsProvider>
-        </AuthProvider>
-      </SettingsProvider>
-    </I18nProvider>
+    <ErrorBoundary>
+      <I18nProvider>
+        <SettingsProvider>
+          <AuthProvider>
+            <UserCrosshairsProvider>
+              <AppInner />
+            </UserCrosshairsProvider>
+          </AuthProvider>
+        </SettingsProvider>
+      </I18nProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, ArrowUpDown, Users } from 'lucide-react';
 import type { Participant } from './types';
 import { RoleBadges } from './RoleBadges';
+import { Avatar } from './Avatar';
 import { useI18n } from '@/i18n';
 
 const ROW_HEIGHT = 56;
@@ -28,6 +29,8 @@ export function ParticipantTable({ participants, onSelectParticipant, hideHeader
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [scrollTop, setScrollTop] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const lastUserScrollRef = useRef(0);
+  const programmaticScrollRef = useRef(false);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -57,9 +60,39 @@ export function ParticipantTable({ participants, onSelectParticipant, hideHeader
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const onScroll = () => setScrollTop(el.scrollTop);
+    const onScroll = () => {
+      if (programmaticScrollRef.current) {
+        programmaticScrollRef.current = false;
+        return;
+      }
+      lastUserScrollRef.current = Date.now();
+      setScrollTop(el.scrollTop);
+    };
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const sinceScroll = Date.now() - lastUserScrollRef.current;
+    if (sinceScroll >= 3000 || lastUserScrollRef.current === 0) {
+      programmaticScrollRef.current = true;
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [filtered.length]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const id = window.setInterval(() => {
+      const sinceScroll = Date.now() - lastUserScrollRef.current;
+      if (sinceScroll >= 3000) {
+        programmaticScrollRef.current = true;
+        el.scrollTop = el.scrollHeight;
+      }
+    }, 500);
+    return () => clearInterval(id);
   }, []);
 
   const toggleSort = (key: SortKey) => {
@@ -126,12 +159,12 @@ export function ParticipantTable({ participants, onSelectParticipant, hideHeader
                   className={`flex items-center gap-3 border-b border-ink-800/50 px-3 transition hover:bg-ink-800/40 ${onSelectParticipant ? 'cursor-pointer' : ''}`}
                   style={{ height: ROW_HEIGHT }}
                 >
-                  <img
+                  <Avatar
                     src={p.avatarUrl || avatarUrlFor(p.username)}
-                    alt=""
+                    username={p.username}
+                    displayName={p.displayName}
+                    color={p.color}
                     className="h-9 w-9 shrink-0 rounded-full border border-ink-700 bg-ink-850 object-cover"
-                    loading="lazy"
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1">

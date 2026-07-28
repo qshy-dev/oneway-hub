@@ -15,6 +15,7 @@ import { HistoryPanel } from './HistoryPanel';
 import { ParticipantModal } from './ParticipantModal';
 import { GiveawaySettingsModal } from './GiveawaySettingsModal';
 import { useI18n } from '@/i18n';
+import { useUserEvents } from '@/lib/useUserEvents';
 import {
   getMode, modeList,
   type GiveawayModeId, type Participant, type ChatMessage,
@@ -36,8 +37,9 @@ const statusMeta: Record<ConnectionStatus, { labelKey: string; color: string; do
 
 let logIdCounter = 0;
 
-export function Giveaways() {
+export function Giveaways({ onViewProfile }: { onViewProfile?: (userId: string) => void }) {
   const { t } = useI18n();
+  const { addEvent, upsertParticipants, incrementWinner } = useUserEvents();
   const [channel, setChannel] = useState(() => localStorage.getItem('gw_channel') ?? '');
   const [modeId, setModeId] = useState<GiveawayModeId>(() => (localStorage.getItem('gw_mode_id') as GiveawayModeId) || 'keyword');
   const [config, setConfig] = useState<Record<string, string | number | boolean>>(() => {
@@ -167,14 +169,14 @@ export function Giveaways() {
   const modeIdRef = useRef(modeId);
   modeIdRef.current = modeId;
 
-  // msg/sec calculation every second
+  // msg/sec calculation — 3-second sliding window averaged for smoothness
   useEffect(() => {
     const id = window.setInterval(() => {
       const now = Date.now();
-      const cutoff = now - 1000;
+      const cutoff = now - 3000;
       const win = msgWindowRef.current;
       while (win.length > 0 && win[0] < cutoff) win.shift();
-      setMsgPerSec(win.length);
+      setMsgPerSec(Math.round(win.length / 3));
     }, 1000);
     return () => clearInterval(id);
   }, []);
@@ -201,9 +203,22 @@ export function Giveaways() {
   const totalTimerSec = useTimer
     ? (customTimer ? Math.max(1, parseInt(customTimer, 10) || 0) : timerSec)
     : 0;
+  const [elapsedSec, setElapsedSec] = useState(0);
+  useEffect(() => {
+    if (useTimer || phase !== 'collecting') { setElapsedSec(0); return; }
+    const id = window.setInterval(() => {
+      setElapsedSec(Math.floor((Date.now() - collectStartRef.current) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [useTimer, phase]);
   const timerLabel = phase === 'collecting' && useTimer
     ? formatTime(remaining)
-    : useTimer ? formatTime(totalTimerSec) : '∞';
+    : useTimer ? formatTime(totalTimerSec) : phase === 'collecting' ? formatTime(elapsedSec) : '∞';
+
+  const adjustTimer = (deltaSec: number) => {
+    if (phase !== 'collecting' || !useTimer) return;
+    setTimerSec((prev) => Math.max(1, prev + deltaSec));
+  };
 
   const handleConnect = () => {
     const ch = channel.trim().toLowerCase().replace(/^#/, '');
@@ -296,8 +311,12 @@ export function Giveaways() {
   };
 
   const pendingWinnerRef = useRef<Participant | null>(null);
+  const giveawayRecordedRef = useRef(false);
+  const lastHistoryEntryIdRef = useRef<string | null>(null);
 
   const commitWinnerToHistory = (p: Participant) => {
+    if (giveawayRecordedRef.current) return;
+    giveawayRecordedRef.current = true;
     const dur = Math.round((collectEndRef.current - collectStartRef.current) / 1000);
     const entry: GiveawayHistoryEntry = {
       id: `h${Date.now()}`,
@@ -309,10 +328,20 @@ export function Giveaways() {
       winner: p.displayName,
       durationSec: dur,
     };
+    lastHistoryEntryIdRef.current = entry.id;
     const next = [entry, ...history].slice(0, 100);
     setHistory(next);
     saveHistory(next);
     addLog(t('gw_log_winner', p.displayName), 'event');
+    addEvent('giveaway', entry.modeLabel, {
+      participants: entry.participants,
+      messages: entry.messages,
+      winner: entry.winner,
+      duration_sec: entry.durationSec,
+      mode: entry.mode,
+    });
+    upsertParticipants(participants.map((p) => p.username));
+    incrementWinner(p.username);
   };
 
   const onRouletteResult = (p: Participant | null) => {
@@ -322,11 +351,11 @@ export function Giveaways() {
     setModalParticipant(p);
     setModalIsWinner(true);
     setAutoStartTimer(true);
+    commitWinnerToHistory(p);
   };
 
   const onWinnerResponded = () => {
-    const p = pendingWinnerRef.current;
-    if (p) commitWinnerToHistory(p);
+    // History is already committed when the winner is determined.
   };
 
   const newGiveaway = () => {
@@ -336,6 +365,7 @@ export function Giveaways() {
     }
     resetState();
     pendingWinnerRef.current = null;
+    giveawayRecordedRef.current = false;
     setModalParticipant(null);
     setModalIsWinner(false);
     setAutoStartTimer(false);
@@ -346,6 +376,7 @@ export function Giveaways() {
     setNewGiveawayConfirm(false);
     resetState();
     pendingWinnerRef.current = null;
+    giveawayRecordedRef.current = false;
     setModalParticipant(null);
     setModalIsWinner(false);
     setAutoStartTimer(false);
@@ -353,6 +384,16 @@ export function Giveaways() {
   };
 
   const reroll = () => {
+    giveawayRecordedRef.current = false;
+    if (lastHistoryEntryIdRef.current) {
+      const removedId = lastHistoryEntryIdRef.current;
+      lastHistoryEntryIdRef.current = null;
+      setHistory((prev) => {
+        const next = prev.filter((h) => h.id !== removedId);
+        saveHistory(next);
+        return next;
+      });
+    }
     const current = pendingWinnerRef.current;
     if (current) {
       setExcludedWinnerIds((prev) => {
@@ -636,6 +677,8 @@ export function Giveaways() {
         messages={messageCount}
         msgPerSec={msgPerSec}
         timerLabel={timerLabel}
+        timerActive={phase === 'collecting' && useTimer}
+        onAdjustTimer={adjustTimer}
       />
 
       {/* Roulette / result */}
@@ -653,6 +696,7 @@ export function Giveaways() {
               onResult={onRouletteResult}
               roleWeights={roleWeights}
               excludedIds={excludedWinnerIds}
+              onPickWinner={pickWinner}
             />
           </motion.div>
         )}
@@ -669,7 +713,7 @@ export function Giveaways() {
       </div>
 
       {/* History */}
-      <HistoryPanel history={history} onClear={() => { setHistory([]); saveHistory([]); }} />
+      <HistoryPanel history={history} onClear={() => { setHistory([]); saveHistory([]); }} onDeleteEntry={(id) => { const next = history.filter((h) => h.id !== id); setHistory(next); saveHistory(next); if (lastHistoryEntryIdRef.current === id) lastHistoryEntryIdRef.current = null; }} onViewProfile={onViewProfile} />
 
       <LogsPanel open={logsOpen} onClose={() => setLogsOpen(false)} logs={logs} />
 
@@ -795,7 +839,7 @@ export function Giveaways() {
 
       <ParticipantModal
         participant={modalParticipant}
-        messages={chatFeed}
+        messages={participantFeed}
         isWinner={modalIsWinner}
         canReroll={modalIsWinner && participants.length - excludedWinnerIds.size > 0}
         onReroll={requestReroll}

@@ -14,15 +14,19 @@ interface ChatFeedProps {
 export function ChatFeed({ messages, connected, livePulse }: ChatFeedProps) {
   const { t } = useI18n();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const stickRef = useRef(true);
+  const lastUserScrollRef = useRef(0);
+  const programmaticScrollRef = useRef(false);
   const [recentTick, setRecentTick] = useState(0);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const onScroll = () => {
-      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-      stickRef.current = nearBottom;
+      if (programmaticScrollRef.current) {
+        programmaticScrollRef.current = false;
+        return;
+      }
+      lastUserScrollRef.current = Date.now();
     };
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
@@ -30,9 +34,26 @@ export function ChatFeed({ messages, connected, livePulse }: ChatFeedProps) {
 
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el || !stickRef.current) return;
-    el.scrollTop = el.scrollHeight;
+    if (!el) return;
+    const sinceScroll = Date.now() - lastUserScrollRef.current;
+    if (sinceScroll > 3000 || lastUserScrollRef.current === 0) {
+      programmaticScrollRef.current = true;
+      el.scrollTop = el.scrollHeight;
+    }
   }, [messages]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const id = window.setInterval(() => {
+      const sinceScroll = Date.now() - lastUserScrollRef.current;
+      if (sinceScroll >= 3000) {
+        programmaticScrollRef.current = true;
+        el.scrollTop = el.scrollHeight;
+      }
+    }, 500);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     if (livePulse === 0) return;

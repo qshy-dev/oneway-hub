@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { History, ChevronLeft, ChevronRight } from 'lucide-react';
+import { History, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import type { GiveawayHistoryEntry } from './types';
+import { WinnerProfileModal } from './WinnerProfileModal';
 import { useI18n } from '@/i18n';
 
 interface HistoryPanelProps {
   history: GiveawayHistoryEntry[];
   onClear: () => void;
+  onDeleteEntry: (id: string) => void;
+  onViewProfile?: (userId: string) => void;
 }
 
 const PAGE_SIZE = 10;
@@ -17,9 +20,10 @@ function formatDuration(sec: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-export function HistoryPanel({ history, onClear }: HistoryPanelProps) {
+export function HistoryPanel({ history, onClear, onDeleteEntry, onViewProfile }: HistoryPanelProps) {
   const { t, lang } = useI18n();
   const [page, setPage] = useState(0);
+  const [profileUsername, setProfileUsername] = useState<string | null>(null);
 
   if (history.length === 0) {
     return (
@@ -58,16 +62,43 @@ export function HistoryPanel({ history, onClear }: HistoryPanelProps) {
             initial={{ opacity: 0, x: -8 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: Math.min(i * 0.03, 0.3) }}
-            className="grid grid-cols-2 gap-2 rounded-lg border border-ink-800 bg-ink-900/50 px-4 py-3 text-sm sm:grid-cols-5"
+            className="flex items-center gap-10 rounded-lg border border-ink-800 bg-ink-900/50 px-4 py-1.5 text-sm"
           >
-            <div className="text-ink-400">{new Date(h.date).toLocaleString(lang === 'en' ? 'en-US' : 'ru-RU')}</div>
-            <div className="font-medium text-ink-200">{h.modeLabel}</div>
-            <div className="text-ink-400">{h.participants.toLocaleString(lang === 'en' ? 'en-US' : 'ru-RU')} {t('gw_history_participants_short')}</div>
-            <div className="text-ink-400">{h.messages.toLocaleString(lang === 'en' ? 'en-US' : 'ru-RU')} {t('gw_history_messages_short')}</div>
-            <div className="text-ink-200">
-              {h.winner ? <span className="font-semibold text-accent-400">{h.winner}</span> : '—'}
-              <span className="ml-2 text-ink-500">{formatDuration(h.durationSec)}</span>
+            <div className="w-[140px] shrink-0 text-ink-400">
+              {new Date(h.date).toLocaleString(lang === 'en' ? 'en-US' : 'ru-RU')}
             </div>
+            <div className="w-[120px] shrink-0 truncate font-medium text-ink-200" title={h.modeLabel}>{h.modeLabel}</div>
+            <div className="w-[80px] shrink-0 whitespace-nowrap text-ink-400">
+              {h.participants.toLocaleString(lang === 'en' ? 'en-US' : 'ru-RU')} {t('gw_history_participants_short')}
+            </div>
+            <div className="w-[80px] shrink-0 whitespace-nowrap text-ink-400">
+              {h.messages.toLocaleString(lang === 'en' ? 'en-US' : 'ru-RU')} {t('gw_history_messages_short')}
+            </div>
+            <div className="min-w-0 flex-1 truncate">
+              {h.winner ? (
+                <button
+                  onClick={() => setProfileUsername(h.winner!)}
+                  className="font-semibold text-accent-400 transition hover:text-accent-300 hover:underline"
+                >
+                  {h.winner}
+                </button>
+              ) : (
+                <span className="text-ink-500">—</span>
+              )}
+            </div>
+            <div
+              className="w-[44px] shrink-0 cursor-help text-right tabular-nums text-ink-500"
+              title={t('gw_history_duration_tooltip')}
+            >
+              {formatDuration(h.durationSec)}
+            </div>
+            <button
+              onClick={() => onDeleteEntry(h.id)}
+              title={t('gw_history_delete')}
+              className="shrink-0 text-ink-600 transition hover:text-red-400"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
           </motion.div>
         ))}
       </div>
@@ -105,6 +136,12 @@ export function HistoryPanel({ history, onClear }: HistoryPanelProps) {
           </button>
         </div>
       )}
+
+      <WinnerProfileModal
+        username={profileUsername}
+        onClose={() => setProfileUsername(null)}
+        onViewFullProfile={onViewProfile}
+      />
     </div>
   );
 }

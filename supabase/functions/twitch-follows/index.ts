@@ -6,7 +6,31 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey, X-Provider-Token",
 };
 
-const TWITCH_WEB_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
+interface FollowEdge {
+  followed_at: string;
+  broadcaster_login: string;
+  broadcaster_name: string;
+  profile_image_url: string | null;
+}
+
+async function validateToken(providerToken: string): Promise<{ clientId: string; userId: string } | null> {
+  try {
+    const res = await fetch("https://id.twitch.tv/oauth2/validate", {
+      headers: { Authorization: `Bearer ${providerToken}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return { clientId: data.client_id, userId: data.user_id };
+  } catch {
+    return null;
+  }
+}
+
+function helixHeaders(clientId: string, providerToken: string): Record<string, string> {
+  const headers: Record<string, string> = { "Client-Id": clientId };
+  if (providerToken) headers["Authorization"] = `Bearer ${providerToken}`;
+  return headers;
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -23,56 +47,89 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // The Twitch provider OAuth token from the user's Supabase session.
-    // Required: the GQL follows.edges field returns empty without authentication.
     const providerToken = req.headers.get("X-Provider-Token") ?? "";
 
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "Client-Id": TWITCH_WEB_CLIENT_ID,
-    };
-    if (providerToken) {
-      headers["Authorization"] = `OAuth ${providerToken}`;
-    }
-
-    const gqlRes = await fetch("https://gql.twitch.tv/gql", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        operationName: "ChannelShallowUser",
-        variables: { login },
-        query:
-          "query ChannelShallowUser($login: String!) { user(login: $login) { follows(first: 100) { totalCount edges { followedAt node { login displayName profileImageURL(width: 70) } } } } }",
-      }),
-    });
-
-    if (!gqlRes.ok) {
-      return new Response(JSON.stringify({ login, follows: [], total: 0 }), {
+    if (!providerToken) {
+      return new Response(JSON.stringify({ login, follows: [], total: 0, error: "no provider token" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const data = await gqlRes.json();
-    const user = data?.data?.user;
-
-    if (!user) {
-      return new Response(JSON.stringify({ login, follows: [], total: 0 }), {
+    // Validate the token to get the correct client_id and user_id
+    const validated = await validateToken(providerToken);
+    if (!validated) {
+      return new Response(JSON.stringify({ login, follows: [], total: 0, error: "token validation failed" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const follows = user?.follows?.edges?.map((edge: Record<string, unknown>) => ({
-      login: (edge.node as Record<string, unknown>)?.login ?? "",
-      displayName: (edge.node as Record<string, unknown>)?.displayName ?? (edge.node as Record<string, unknown>)?.login ?? "",
-      avatar: (edge.node as Record<string, unknown>)?.profileImageURL ?? null,
-      followedAt: edge?.followedAt ?? null,
-    })) ?? [];
+    const { clientId, userId } = validated;
 
-    const total = user?.follows?.totalCount ?? follows.length;
+    // Fetch followed channels via Helix (paginated, 100 per page)
+    const follows: FollowEdge[] = [];
+    let cursor: string | undefined;
+    let total = 0;
 
-    return new Response(JSON.stringify({ login, follows, total }), {
+    for (let page = 0; page < 10; page++) {
+      const params = new URLSearchParams({ user_id: userId, first: "100" });
+      if (cursor) params.set("after", cursor);
+
+      const followRes = await fetch(
+        `https://api.twitch.tv/helix/channels/followed?${params}`,
+        { headers: helixHeaders(clientId, providerToken) },
+      );
+
+      if (!followRes.ok) {
+        break;
+      }
+
+      const followData = await followRes.json();
+      const edges = followData?.data ?? [];
+      total = followData?.total ?? edges.length;
+
+      for (const edge of edges) {
+        follows.push({
+          followed_at: edge.followed_at,
+          broadcaster_login: edge.broadcaster_login,
+          broadcaster_name: edge.broadcaster_name,
+          profile_image_url: null,
+        });
+      }
+
+      cursor = followData?.pagination?.cursor;
+      if (!cursor || edges.length === 0) break;
+    }
+
+    // Fetch avatars in batches of 100 via Helix users endpoint
+    for (let i = 0; i < follows.length; i += 100) {
+      const batch = follows.slice(i, i + 100);
+      const logins = batch.map((f) => f.broadcaster_login).join("&login=");
+      const avatarRes = await fetch(
+        `https://api.twitch.tv/helix/users?login=${logins}`,
+        { headers: helixHeaders(clientId, providerToken) },
+      );
+      if (avatarRes.ok) {
+        const avatarData = await avatarRes.json();
+        const avatarMap: Record<string, string> = {};
+        for (const u of avatarData?.data ?? []) {
+          avatarMap[u.login.toLowerCase()] = u.profile_image_url;
+        }
+        for (const f of batch) {
+          f.profile_image_url = avatarMap[f.broadcaster_login.toLowerCase()] ?? null;
+        }
+      }
+    }
+
+    const formatted = follows.map((f) => ({
+      login: f.broadcaster_login,
+      displayName: f.broadcaster_name,
+      avatar: f.profile_image_url,
+      followedAt: f.followed_at,
+    }));
+
+    return new Response(JSON.stringify({ login, follows: formatted, total }), {
       headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
     });
   } catch (err) {

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, RefreshCw, MessageSquare, Clock, CheckCircle2, AlertCircle, CalendarDays, Heart, HeartCrack, Loader2 } from 'lucide-react';
 import type { Participant, ChatMessage } from './types';
 import { RoleBadges } from './RoleBadges';
+import { Avatar } from './Avatar';
 import { useI18n } from '@/i18n';
 
 interface ParticipantModalProps {
@@ -155,11 +156,12 @@ export function ParticipantModal({
           >
             {/* Header */}
             <div className={`flex items-center gap-4 p-5 ${isWinner ? 'border-b border-accent-500/30 bg-accent-500/10' : 'border-b border-ink-800'}`}>
-              <img
+              <Avatar
                 src={participant.avatarUrl || avatarUrlFor(participant.username)}
-                alt=""
+                username={participant.username}
+                displayName={participant.displayName}
+                color={participant.color}
                 className={`h-16 w-16 shrink-0 rounded-full border-2 object-cover ${isWinner ? 'border-accent-500' : 'border-ink-700'}`}
-                onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
               />
               <div className="min-w-0 flex-1">
                 <h3 className="truncate text-xl font-extrabold" style={{ color: participant.color }}>

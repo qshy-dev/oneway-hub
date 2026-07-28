@@ -167,15 +167,17 @@ export function Home({ onNavigate, active, onLogoClick, restartKey }: { onNaviga
     { label: t('home_roadmap_item_9'), status: 'done' },
     { label: t('home_roadmap_item_10'), status: 'done' },
     { label: t('home_roadmap_item_11'), status: 'done' },
-    { label: t('home_roadmap_item_12'), status: 'wip' },
-    { label: t('home_roadmap_item_13'), status: 'planned' },
-    { label: t('home_roadmap_item_14'), status: 'planned' },
-    { label: t('home_roadmap_item_15'), status: 'planned' },
-    { label: t('home_roadmap_item_16'), status: 'planned' },
-    { label: t('home_roadmap_item_17'), status: 'planned' },
+    { label: t('home_roadmap_item_12'), status: 'done' },
+    { label: t('home_roadmap_item_13'), status: 'done' },
+    { label: t('home_roadmap_item_14'), status: 'done' },
+    { label: t('home_roadmap_item_15'), status: 'done' },
+    { label: t('home_roadmap_item_16'), status: 'wip' },
+    { label: t('home_roadmap_item_17'), status: 'wip' },
     { label: t('home_roadmap_item_18'), status: 'planned' },
     { label: t('home_roadmap_item_19'), status: 'planned' },
     { label: t('home_roadmap_item_20'), status: 'planned' },
+    { label: t('home_roadmap_item_21'), status: 'planned' },
+    { label: t('home_roadmap_item_22'), status: 'planned' },
   ];
 
   const ROADMAP_PAGE_SIZE = 10;

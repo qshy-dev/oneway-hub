@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Play, RotateCcw,
-  Plus, Search, Gavel, Disc, Archive, Trash2, Save, X, Clock, History as HistoryIcon, ListOrdered,
-  ScrollText, Minus, Pencil, Check,
+  Plus, Search, Gavel, Archive, Trash2, Save, X, Clock, History as HistoryIcon, ListOrdered,
+  ScrollText, Minus, Pencil, Check, Eye, EyeOff,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useI18n } from '@/i18n';
 import type { Lot, Bid, HistoryEntry, ArchivedAuction } from './types';
 import { RulesEditor } from './RulesEditor';
+import { AuctionWheel } from './AuctionWheel';
+import { useUserEvents } from '@/lib/useUserEvents';
 
 const DEFAULT_CS = 30 * 60 * 100;        // 30 min in centiseconds
 const HH_MM_SS_THRESHOLD = 60 * 60 * 100; // >= 60 min → show HH:MM:SS
@@ -137,8 +139,10 @@ function TimerSegment({ value, max, onChange, onAdjust, stepCs, disabled, color,
 }
 
 /* ---- Main component ---- */
-export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
+export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auction' | 'wheel'; sidebarCollapsed?: boolean; wheelDirtyRef?: React.MutableRefObject<boolean> }) {
   const { t } = useI18n();
+  const { addEvent } = useUserEvents();
+  const auctionRecordedRef = useRef(false);
   const saved = useMemo(loadState, []);
   const [name, setName] = useState(saved.name);
   const [lots, setLots] = useState<Lot[]>(saved.lots);
@@ -166,6 +170,7 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
   const [renameArchiveValue, setRenameArchiveValue] = useState('');
   const [rulesOpen, setRulesOpen] = useState(false);
   const [rules, setRules] = useState<string>(loadRules);
+  const [showTotalSum, setShowTotalSum] = useState(false);
   const tickRef = useRef<number | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -318,6 +323,18 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
     addHistory(t('auction_log_auction_saved').replace('{0}', arch.name));
   };
 
+  const renameArchive = (id: string, newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    setArchive((a) => a.map((x) => (x.id === id ? { ...x, name: trimmed } : x)));
+    setRenamingArchiveId(null);
+    setRenameArchiveValue('');
+  };
+
+  const deleteArchive = (id: string) => {
+    setArchive((a) => a.filter((x) => x.id !== id));
+  };
+
   // Timer segment setters — always operate on total csLeft, recomputing from current display values
   const setHoursHH = (h: number) => setCsLeft(h * 360000 + minutesHH * 6000 + secsHH * 100);
   const setMinutesHH = (m: number) => setCsLeft(hours * 360000 + m * 6000 + secsHH * 100);
@@ -337,12 +354,29 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
       {/* Main column */}
       <div className="flex flex-1 flex-col min-h-0 gap-4">
         {tab === 'wheel' ? (
-          <div className="flex flex-1 items-center justify-center text-ink-500">
-            <div className="text-center">
-              <Disc className="mx-auto mb-3 h-12 w-12 text-ink-600" />
-              <p className="text-sm">{t('auction_tab_wheel')} — coming soon</p>
-            </div>
-          </div>
+          <AuctionWheel
+            lots={lots}
+            sidebarCollapsed={sidebarCollapsed}
+            onWinner={(lot) => {
+              if (auctionRecordedRef.current) return;
+              auctionRecordedRef.current = true;
+              addHistory(t('auction_wheel_winner_log').replace('{0}', lot.name || `#${lot.order + 1}`).replace('{1}', String(lot.price)));
+              addEvent('auction', name || null, {
+                lots_count: lots.length,
+                total_sum: lots.reduce((s, l) => s + l.price, 0),
+                participants: new Set(bids.map((b) => b.user)).size,
+                winner_lot: lot.name || `#${lot.order + 1}`,
+                winner_price: lot.price,
+              });
+            }}
+            onReroll={() => {
+              auctionRecordedRef.current = false;
+            }}
+            onEliminated={(lot) => {
+              addHistory(t('auction_wheel_eliminated_log').replace('{0}', lot.name || `#${lot.order + 1}`));
+            }}
+            wheelDirtyRef={wheelDirtyRef}
+          />
         ) : (
           <>
             {/* Row 1: lot name, price, add lot, search */}
@@ -408,6 +442,14 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
                 <ScrollText className="h-4 w-4" />
                 {t('auction_rules')}
               </button>
+              <button
+                onClick={() => setShowTotalSum((s) => !s)}
+                title={t('auction_toggle_total_sum')}
+                className="flex items-center gap-1.5 rounded-lg border border-ink-700 bg-ink-800 px-2.5 py-2 text-sm font-semibold text-ink-500 transition hover:text-ink-300"
+              >
+                {showTotalSum ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showTotalSum && <span className="tabular-nums text-ink-200">{lots.reduce((s, l) => s + l.price, 0)} {t('currency_symbol')}</span>}
+              </button>
             </div>
 
             {/* Lot list + Rules panel */}
@@ -445,21 +487,29 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
                   </div>
                 ) : (
                   <div className="overflow-y-auto" style={{ maxHeight: 480 }}>
-                    <table className="w-full border-collapse">
-                      <tbody>
+                    <motion.div layout className="flex flex-col">
+                      <AnimatePresence initial={false}>
                         {filteredLots.map((lot, idx) => (
-                          <tr
+                          <motion.div
                             key={lot.id}
-                            className={`group border-b border-ink-800/60 transition hover:bg-ink-800/30 ${idx % 2 === 0 ? 'bg-ink-900/40' : 'bg-ink-950/40'}`}
+                            layout
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{
+                              layout: { type: 'spring', stiffness: 500, damping: 40, mass: 0.8 },
+                              opacity: { duration: 0.15 },
+                            }}
+                            className={`group flex items-center border-b border-ink-800/60 hover:bg-ink-800/30 ${idx % 2 === 0 ? 'bg-ink-900/40' : 'bg-ink-950/40'}`}
                           >
                             {/* Row number */}
-                            <td className="w-8 py-3 pl-4 text-sm font-medium text-ink-500 tabular-nums">{idx + 1}</td>
+                            <div className="w-8 py-3 pl-4 text-sm font-medium text-ink-500 tabular-nums">{idx + 1}</div>
                             {/* Colored # badge */}
-                            <td className="w-12 py-3 px-2">
+                            <div className="w-12 py-3 px-2">
                               <span className="text-sm font-bold text-accent-400">#{idx + 1}</span>
-                            </td>
+                            </div>
                             {/* Name */}
-                            <td className="py-3 px-2 min-w-0">
+                            <div className="py-3 px-2 min-w-0 flex-1">
                               {renamingId === lot.id ? (
                                 <input
                                   autoFocus
@@ -475,15 +525,15 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
                               ) : (
                                 <button
                                   onClick={() => { setRenamingId(lot.id); setRenameValue(lot.name); }}
-                                  className="text-left text-sm font-medium transition hover:text-accent-400 truncate max-w-xs"
+                                  className="text-left text-sm font-medium transition hover:text-accent-400 truncate max-w-xs block"
                                 >
                                   {lot.name || <span className="text-ink-600">{t('auction_lot_name_placeholder')}</span>}
                                 </button>
                               )}
-                            </td>
+                            </div>
                             {/* Price */}
-                            <td className="w-28 py-3 px-3">
-                              <div className="flex items-center justify-end gap-1">
+                            <div className="w-28 py-3 px-3">
+                              <div className="flex items-center justify-center gap-1">
                               {editingPriceId === lot.id ? (
                                 <input
                                   autoFocus
@@ -501,15 +551,15 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
                               ) : (
                                 <button
                                   onClick={() => { setEditingPriceId(lot.id); setPriceValue(lot.price === 0 ? '' : String(lot.price)); }}
-                                  className="text-sm font-semibold tabular-nums transition hover:text-accent-400 text-ink-300"
+                                  className="flex h-7 w-24 items-center justify-center text-sm font-semibold tabular-nums transition hover:text-accent-400 text-ink-300"
                                 >
                                   {lot.price > 0 ? lot.price : <span className="text-ink-600">{t('currency_symbol')}</span>}
                                 </button>
                               )}
                               </div>
-                            </td>
+                            </div>
                             {/* Add sum */}
-                            <td className="w-20 py-3 px-1 text-center">
+                            <div className="w-20 py-3 px-1 text-center">
                               {addSumId === lot.id ? (
                                 <input
                                   autoFocus
@@ -527,26 +577,26 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
                               ) : (
                                 <button
                                   onClick={() => { setAddSumId(lot.id); setAddSumValue(''); }}
-                                  className="text-ink-500 transition hover:text-accent-400"
+                                  className="flex h-7 w-20 items-center justify-center text-ink-500 transition hover:text-accent-400"
                                   title={t('auction_add_sum')}
                                 >
                                   <Plus className="h-4 w-4" />
                                 </button>
                               )}
-                            </td>
+                            </div>
                             {/* Delete */}
-                            <td className="w-10 py-3 px-1 pr-4 text-center">
+                            <div className="w-10 py-3 px-1 pr-4 text-center">
                               <button
                                 onClick={() => removeLot(lot.id)}
                                 className="text-ink-600 transition hover:text-red-400"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
-                            </td>
-                          </tr>
+                            </div>
+                          </motion.div>
                         ))}
-                      </tbody>
-                    </table>
+                      </AnimatePresence>
+                    </motion.div>
                   </div>
                 )}
               </div>

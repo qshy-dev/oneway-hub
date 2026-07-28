@@ -1,8 +1,48 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
+import { Trophy } from 'lucide-react';
 import type { Participant, RoleWeights } from './types';
 import { DEFAULT_ROLE_WEIGHTS } from './types';
+import { Avatar } from './Avatar';
 import { useI18n } from '@/i18n';
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function dedupeParticipants(pool: Participant[]): Participant[] {
+  const seen = new Set<string>();
+  const out: Participant[] = [];
+  for (const p of pool) {
+    const key = p.username.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(p);
+  }
+  return out;
+}
+
+function buildUniqueStrip(pool: Participant[], len: number): Participant[] {
+  const unique = dedupeParticipants(pool);
+  if (unique.length === 0) return [];
+  const out: Participant[] = [];
+  let last: string | undefined;
+  while (out.length < len) {
+    const shuffled = shuffle(unique);
+    for (const p of shuffled) {
+      if (out.length >= len) break;
+      if (p.username === last && unique.length > 1) continue;
+      out.push(p);
+      last = p.username;
+    }
+  }
+  return out;
+}
 
 const ITEM_WIDTH = 150;
 const ITEM_GAP = 14;
@@ -16,6 +56,7 @@ interface GiveawayRouletteProps {
   onResult: (winner: Participant | null) => void;
   roleWeights?: RoleWeights;
   excludedIds?: Set<string>;
+  onPickWinner?: () => void;
 }
 
 type Phase = 'idle' | 'spinning' | 'result';
@@ -24,7 +65,7 @@ function avatarUrlFor(username: string): string {
   return `https://unavatar.io/twitch/${encodeURIComponent(username)}`;
 }
 
-export function GiveawayRoulette({ participants, spinSignal, onResult, roleWeights = DEFAULT_ROLE_WEIGHTS, excludedIds }: GiveawayRouletteProps) {
+export function GiveawayRoulette({ participants, spinSignal, onResult, roleWeights = DEFAULT_ROLE_WEIGHTS, excludedIds, onPickWinner }: GiveawayRouletteProps) {
   const { t } = useI18n();
   const [phase, setPhase] = useState<Phase>('idle');
   const [offset, setOffset] = useState(0);
@@ -36,18 +77,9 @@ export function GiveawayRoulette({ participants, spinSignal, onResult, roleWeigh
   const onResultRef = useRef(onResult);
   onResultRef.current = onResult;
 
-  const buildStrip = useCallback((pool: Participant[], weights: RoleWeights, forcedWinner?: Participant) => {
+  const buildStrip = useCallback((pool: Participant[]): Participant[] => {
     if (pool.length === 0) return [];
-    const out: Participant[] = [];
-    const winIndex = forcedWinner ? 40 + Math.floor(Math.random() * 10) : -1;
-    for (let i = 0; i < 60; i++) {
-      if (i === winIndex && forcedWinner) {
-        out.push(forcedWinner);
-      } else {
-        out.push(pool[Math.floor(Math.random() * pool.length)]);
-      }
-    }
-    return out;
+    return buildUniqueStrip(pool, 60);
   }, []);
 
   const pickWeightedWinner = useCallback((pool: Participant[], weights: RoleWeights): Participant => {
@@ -69,7 +101,7 @@ export function GiveawayRoulette({ participants, spinSignal, onResult, roleWeigh
 
   useEffect(() => {
     if (phase === 'idle' && strip.length === 0 && participants.length > 0) {
-      setStrip(buildStrip(participants, roleWeights));
+      setStrip(buildStrip(participants));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [participants]);
@@ -86,13 +118,21 @@ export function GiveawayRoulette({ participants, spinSignal, onResult, roleWeigh
     setTransition(false);
 
     const forcedWinner = pickWeightedWinner(pool, roleWeights);
-    const newStrip = buildStrip(pool, roleWeights, forcedWinner);
+    const newStrip = buildStrip(pool);
     setStrip(newStrip);
 
     const minWinIndex = 40;
     const maxWinIndex = newStrip.length - 5;
-    const winIndex = minWinIndex + Math.floor(Math.random() * (maxWinIndex - minWinIndex));
-    // Ensure the forced winner lands on winIndex
+    // Find a win index whose neighbors differ from the forced winner to avoid consecutive duplicates
+    const candidates: number[] = [];
+    for (let i = minWinIndex; i <= maxWinIndex; i++) {
+      const leftOk = i === 0 || newStrip[i - 1].username !== forcedWinner.username;
+      const rightOk = i === newStrip.length - 1 || newStrip[i + 1].username !== forcedWinner.username;
+      if (leftOk && rightOk) candidates.push(i);
+    }
+    const winIndex = candidates.length > 0
+      ? candidates[Math.floor(Math.random() * candidates.length)]
+      : minWinIndex + Math.floor(Math.random() * (maxWinIndex - minWinIndex));
     newStrip[winIndex] = forcedWinner;
     const jitter = (Math.random() - 0.5) * (ITEM_WIDTH * 0.6);
     const containerWidth = viewportRef.current?.clientWidth ?? 800;
@@ -152,12 +192,12 @@ export function GiveawayRoulette({ participants, spinSignal, onResult, roleWeigh
               {strip.map((p, i) => (
                 <div key={i} className="flex shrink-0 flex-col items-center gap-2" style={{ width: ITEM_WIDTH }}>
                   <div className="flex h-28 w-28 items-center justify-center rounded-lg border border-ink-800 bg-ink-850 overflow-hidden">
-                    <img
+                    <Avatar
                       src={p.avatarUrl || avatarUrlFor(p.username)}
-                      alt=""
+                      username={p.username}
+                      displayName={p.displayName}
+                      color={p.color}
                       className="h-full w-full object-cover"
-                      loading="lazy"
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
                     />
                   </div>
                   <span className="max-w-[140px] truncate text-xs font-medium" style={{ color: p.color }}>
@@ -170,6 +210,18 @@ export function GiveawayRoulette({ participants, spinSignal, onResult, roleWeigh
         </div>
       </div>
 
+      {phase === 'idle' && !winner && onPickWinner && participants.length > 0 && (
+        <div className="flex justify-center">
+          <button
+            onClick={onPickWinner}
+            className="flex items-center gap-2 rounded-xl bg-accent-500 px-12 py-3.5 text-base font-semibold tracking-wide text-white transition-all hover:bg-accent-400 hover:scale-[1.02] active:scale-95"
+          >
+            <Trophy className="h-5 w-5" />
+            {t('gw_pick_winner')}
+          </button>
+        </div>
+      )}
+
       {winner && (
         <motion.div
           initial={{ opacity: 0, scale: 0.96 }}
@@ -178,11 +230,12 @@ export function GiveawayRoulette({ participants, spinSignal, onResult, roleWeigh
           className="mx-auto flex max-w-md flex-col items-center gap-3 rounded-2xl border border-accent-500/40 bg-accent-500/10 p-6 text-center"
         >
           <span className="text-xs font-semibold uppercase tracking-[0.2em] text-accent-400">{t('gw_winner')}</span>
-          <img
+          <Avatar
             src={winner.avatarUrl || avatarUrlFor(winner.username)}
-            alt=""
+            username={winner.username}
+            displayName={winner.displayName}
+            color={winner.color}
             className="h-20 w-20 rounded-full border-2 border-accent-500 object-cover"
-            onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
           />
           <h3 className="text-2xl font-extrabold" style={{ color: winner.color }}>
             {winner.displayName}

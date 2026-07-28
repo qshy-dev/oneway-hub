@@ -1,7 +1,8 @@
-import { LogOut, Twitch, UserCircle, Calendar, Hash, Tv, AtSign, BadgeCheck, Heart, X, Search } from 'lucide-react';
-import { useState } from 'react';
+import { LogOut, Twitch, UserCircle, Calendar, Hash, AtSign, Heart, X, Search, ExternalLink } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useI18n } from '@/i18n';
+import { supabase, type Profile as ProfileRow } from '@/lib/supabase';
 
 interface FollowedChannel {
   login: string;
@@ -10,14 +11,38 @@ interface FollowedChannel {
   followedAt: string | null;
 }
 
-export function Profile() {
+export function Profile({ userId }: { userId?: string | null }) {
   const { t } = useI18n();
-  const { profile, user, loading, signInWithTwitch, signOut, session } = useAuth();
+  const { profile: ownProfile, user, loading: authLoading, signInWithTwitch, signOut, session } = useAuth();
+  const [externalProfile, setExternalProfile] = useState<ProfileRow | null>(null);
+  const [extLoading, setExtLoading] = useState(false);
   const [showFollows, setShowFollows] = useState(false);
   const [follows, setFollows] = useState<FollowedChannel[]>([]);
   const [followsLoading, setFollowsLoading] = useState(false);
   const [followsError, setFollowsError] = useState<string | null>(null);
   const [followsSearch, setFollowsSearch] = useState('');
+
+  const isExternal = !!userId;
+  const profile = isExternal ? externalProfile : ownProfile;
+  const loading = isExternal ? extLoading : authLoading;
+
+  useEffect(() => {
+    if (!userId) return;
+    setExtLoading(true);
+    supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        setExtLoading(false);
+        if (error || !data) {
+          setExternalProfile(null);
+          return;
+        }
+        setExternalProfile(data as ProfileRow);
+      });
+  }, [userId]);
 
   const loadFollows = async () => {
     if (!profile?.twitch_username) return;
@@ -56,7 +81,7 @@ export function Profile() {
     );
   }
 
-  if (!user) {
+  if (!isExternal && !user) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-6 py-20">
         <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-ink-800 bg-ink-900">
@@ -76,15 +101,13 @@ export function Profile() {
     );
   }
 
-  const broadcasterLabel = (bt: string | null) => {
-    if (bt === 'partner') return t('profile_broadcaster_partner');
-    if (bt === 'affiliate') return t('profile_broadcaster_affiliate');
-    return t('profile_broadcaster_none');
-  };
-
-  const joinedDate = user.created_at
-    ? new Date(user.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
-    : '—';
+  const joinedDate = isExternal
+    ? (externalProfile?.created_at
+        ? new Date(externalProfile.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+        : '—')
+    : (user.created_at
+        ? new Date(user.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+        : '—');
 
   return (
     <div className="flex flex-1 flex-col gap-6 py-4">
@@ -104,41 +127,53 @@ export function Profile() {
             </div>
           )}
           <div className="flex flex-1 flex-col items-center gap-1 sm:items-start">
-            <div className="flex items-center gap-2">
+            {profile?.twitch_username ? (
+              <a
+                href={`https://twitch.tv/${profile.twitch_username}`}
+                target="_blank"
+                rel="noreferrer"
+                className="group flex items-center gap-1.5 transition hover:text-accent-400"
+              >
+                <h2 className="text-2xl font-extrabold text-ink-100 group-hover:text-accent-400">
+                  {profile?.twitch_display_name ?? profile?.twitch_username ?? 'user'}
+                </h2>
+                <ExternalLink className="h-4 w-4 text-ink-600 transition group-hover:text-accent-400" />
+              </a>
+            ) : (
               <h2 className="text-2xl font-extrabold text-ink-100">
-                @{profile?.twitch_username ?? 'user'}
+                {profile?.twitch_display_name ?? profile?.twitch_username ?? 'user'}
               </h2>
-              {profile?.twitch_broadcaster_type === 'partner' && (
-                <BadgeCheck className="h-5 w-5 text-[#9146FF]" />
-              )}
-            </div>
+            )}
             {profile?.twitch_username && (
               <a
                 href={`https://twitch.tv/${profile.twitch_username}`}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-1.5 text-sm text-ink-400 transition hover:text-accent-400"
+                className="text-sm text-ink-400 transition hover:text-accent-400"
               >
-                <Twitch className="h-4 w-4" />
                 @{profile.twitch_username}
               </a>
             )}
-            <span className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-ink-700 bg-ink-900 px-3 py-1 text-xs font-semibold text-ink-300">
-              {broadcasterLabel(profile?.twitch_broadcaster_type ?? null)}
-            </span>
           </div>
-          <button
-            onClick={signOut}
-            className="flex items-center gap-2 rounded-lg border border-ink-700 bg-ink-900 px-4 py-2 text-sm font-semibold text-ink-400 transition hover:border-red-500/50 hover:text-red-400"
-          >
-            <LogOut className="h-4 w-4" />
-            {t('profile_sign_out')}
-          </button>
+          {!isExternal && (
+            <button
+              onClick={signOut}
+              className="flex items-center gap-2 rounded-lg border border-ink-700 bg-ink-900 px-4 py-2 text-sm font-semibold text-ink-400 transition hover:border-red-500/50 hover:text-red-400"
+            >
+              <LogOut className="h-4 w-4" />
+              {t('profile_sign_out')}
+            </button>
+          )}
         </div>
       </div>
 
       {/* Info grid */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <InfoRow
+          icon={<UserCircle className="h-4 w-4" />}
+          label={t('profile_display_name')}
+          value={profile?.twitch_display_name ?? '—'}
+        />
         <InfoRow
           icon={<AtSign className="h-4 w-4" />}
           label={t('profile_username')}
@@ -150,11 +185,6 @@ export function Profile() {
           value={profile?.twitch_id ?? '—'}
         />
         <InfoRow
-          icon={<Tv className="h-4 w-4" />}
-          label={t('profile_broadcaster_type')}
-          value={broadcasterLabel(profile?.twitch_broadcaster_type ?? null)}
-        />
-        <InfoRow
           icon={<Calendar className="h-4 w-4" />}
           label={t('profile_joined')}
           value={joinedDate}
@@ -162,16 +192,18 @@ export function Profile() {
       </div>
 
       {/* Subscriptions button */}
-      <button
-        onClick={openFollows}
-        className="flex items-center justify-center gap-2.5 rounded-xl border border-ink-800 bg-ink-900/50 px-4 py-3 text-sm font-semibold text-ink-200 transition hover:border-accent-500/50 hover:text-accent-400"
-      >
-        <Heart className="h-4 w-4" />
-        {t('profile_view_follows')}
-      </button>
+      {!isExternal && (
+        <button
+          onClick={openFollows}
+          className="flex items-center justify-center gap-2.5 rounded-xl border border-ink-800 bg-ink-900/50 px-4 py-3 text-sm font-semibold text-ink-200 transition hover:border-accent-500/50 hover:text-accent-400"
+        >
+          <Heart className="h-4 w-4" />
+          {t('profile_view_follows')}
+        </button>
+      )}
 
       {/* Follows modal */}
-      {showFollows && (
+      {!isExternal && showFollows && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-backdrop-in"
           onClick={() => setShowFollows(false)}
@@ -218,17 +250,17 @@ export function Profile() {
                             <UserCircle className="h-5 w-5 text-ink-600" />
                           </div>
                         )}
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-ink-200">{f.displayName}</p>
-                          <p className="truncate text-xs text-ink-600">@{f.login}</p>
-                        </div>
                         <a
                           href={`https://twitch.tv/${f.login}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-ink-600 transition hover:text-accent-400"
+                          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg transition hover:bg-ink-800/30"
                         >
-                          <Twitch className="h-4 w-4" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-ink-200 hover:text-accent-400">{f.displayName}</p>
+                            <p className="truncate text-xs text-ink-600">@{f.login}</p>
+                          </div>
+                          <ExternalLink className="h-4 w-4 shrink-0 text-ink-600 transition hover:text-accent-400" />
                         </a>
                       </li>
                     ))}
