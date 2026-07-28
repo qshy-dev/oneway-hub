@@ -25,7 +25,7 @@ export function Home({ onNavigate, active, onLogoClick, restartKey }: { onNaviga
   const targetScroll = useRef(0);
   const manualRaf = useRef<number>(0);
 
-  const { display, done } = useTypewriter(t('site_title'), { typoChance: 20, speed: 95, restartKey });
+  const { display, done, thinking } = useTypewriter(t('site_title'), { typoChance: 20, speed: 95, restartKey });
 
   const handleLogo = () => {
     setLogoSpin((v) => v + 360);
@@ -197,7 +197,12 @@ export function Home({ onNavigate, active, onLogoClick, restartKey }: { onNaviga
       >
         <div ref={contentRef} className="flex flex-col items-center text-center">
           {/* Logo */}
-          <div className="relative mb-8 flex h-24 w-24 items-center justify-center">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.6, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
+            className="relative mb-8 flex h-24 w-24 items-center justify-center"
+          >
             <div className="pointer-events-none absolute -inset-2 rounded-full bg-accent-500/20 blur-2xl" />
             <button
               onClick={handleLogo}
@@ -206,17 +211,34 @@ export function Home({ onNavigate, active, onLogoClick, restartKey }: { onNaviga
             >
               <CrosshairIcon className="h-12 w-12 text-accent-500 transition-transform duration-700 ease-out group-hover:scale-110" strokeWidth={1.5} style={{ transform: `rotate(${logoSpin}deg)` }} />
             </button>
-          </div>
+          </motion.div>
 
           {/* Title */}
-          <h1 className="max-w-2xl text-4xl font-extrabold leading-tight tracking-tight text-ink-100 sm:text-5xl">
+          <motion.h1
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.35 }}
+            className="max-w-2xl text-4xl font-extrabold leading-tight tracking-tight text-ink-100 sm:text-5xl"
+          >
             {display}
-            <span className="ml-0.5 inline-block w-[2px] animate-pulse bg-accent-500 align-middle h-[0.9em]" style={{ opacity: done ? 0 : 1 }} />
-          </h1>
-          <p className="mt-4 max-w-xl text-base text-ink-400 sm:text-lg">{t('home_hero_sub')}</p>
+            <span
+              className={`ml-0.5 inline-block w-[2px] bg-accent-500 align-middle h-[0.9em] ${thinking ? 'animate-blink' : 'animate-pulse'}`}
+              style={{ opacity: done ? 0 : 1 }}
+            />
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.5 }}
+            className="mt-4 max-w-xl text-base text-ink-400 sm:text-lg">{t('home_hero_sub')}</motion.p>
 
           {/* Login / Register buttons */}
-          <div className="mt-8 flex w-full max-w-3xl items-start gap-3">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.65 }}
+            className="mt-8 flex w-full max-w-3xl items-start gap-3"
+          >
             {authLoading ? (
               <div className="flex flex-1 items-center justify-center gap-2 text-sm text-ink-400">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -249,10 +271,15 @@ export function Home({ onNavigate, active, onLogoClick, restartKey }: { onNaviga
                 </button>
               </div>
             )}
-          </div>
+          </motion.div>
 
           {/* Feature cards — 2 visible, infinite horizontal scroll with arrows */}
-          <div className="relative mt-5 w-full max-w-3xl">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.8 }}
+            className="relative mt-5 w-full max-w-3xl"
+          >
             <button
               onClick={() => scrollByCards(-1)}
               className="absolute left-0 top-1/2 z-10 -translate-x-[calc(100%+8px)] -translate-y-1/2 rounded-full border border-ink-800 bg-ink-900/80 p-2 text-ink-500 backdrop-blur-sm transition hover:border-accent-500/40 hover:text-accent-400"
@@ -296,10 +323,15 @@ export function Home({ onNavigate, active, onLogoClick, restartKey }: { onNaviga
             >
               <ChevronRight className="h-5 w-5" />
             </button>
-          </div>
+          </motion.div>
 
           {/* About */}
-          <div className="mt-5 w-full max-w-3xl">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.95 }}
+            className="mt-5 w-full max-w-3xl"
+          >
             <div className="parallax parallax-card overflow-hidden rounded-2xl border border-ink-800 bg-ink-900/40">
               <button onClick={() => setAboutOpen((v) => !v)} className="flex w-full items-center gap-3 px-6 py-4 text-left transition hover:bg-ink-800/30">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-ink-700 bg-ink-850 text-accent-400">
@@ -316,10 +348,15 @@ export function Home({ onNavigate, active, onLogoClick, restartKey }: { onNaviga
                 )}
               </AnimatePresence>
             </div>
-          </div>
+          </motion.div>
 
           {/* Roadmap */}
-          <div className="mt-6 w-full max-w-3xl">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 1.1 }}
+            className="mt-6 w-full max-w-3xl"
+          >
             <div className="parallax parallax-card overflow-hidden rounded-2xl border border-ink-800 bg-ink-900/40">
               <button onClick={() => setRoadmapOpen((v) => !v)} className="flex w-full items-center gap-3 px-6 py-4 text-left transition hover:bg-ink-800/30">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-ink-700 bg-ink-850 text-accent-400">
@@ -352,7 +389,7 @@ export function Home({ onNavigate, active, onLogoClick, restartKey }: { onNaviga
                 )}
               </AnimatePresence>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
 

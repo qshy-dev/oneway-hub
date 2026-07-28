@@ -1,11 +1,12 @@
 import { useMemo, useState, useCallback } from 'react';
-import { Crosshair as CrosshairIcon, Dices, Settings as SettingsIcon, Gift, PanelLeftClose, PanelLeftOpen, GalleryHorizontal, Disc, Gavel, BarChart3 } from 'lucide-react';
+import { Crosshair as CrosshairIcon, Dices, Settings as SettingsIcon, Gift, PanelLeftClose, PanelLeftOpen, GalleryHorizontal, Disc, Gavel, BarChart3, UserCircle } from 'lucide-react';
 import { Roulette } from '@/components/Roulette';
 import { Settings } from '@/components/Settings';
 import { Giveaways } from '@/components/giveaways/Giveaways';
 import { Home } from '@/components/Home';
 import { SiteSettings } from '@/components/SiteSettings';
 import { Auction } from '@/components/auction/Auction';
+import { Profile } from '@/components/Profile';
 import { Statistics } from '@/components/statistics/Statistics';
 import { CursorGlow } from '@/components/CursorGlow';
 import { I18nProvider, useI18n } from '@/i18n';
@@ -16,7 +17,7 @@ import { AuthProvider, useAuth } from '@/lib/auth';
 import { type ProCrosshair } from '@/data/proCrosshairs';
 import { type Crosshair } from 'csgo-sharecode';
 
-type Section = 'home' | 'roulette' | 'giveaways' | 'auction' | 'statistics' | 'settings';
+type Section = 'home' | 'profile' | 'roulette' | 'giveaways' | 'auction' | 'statistics' | 'settings';
 type RouletteTab = 'roulette' | 'settings';
 type RouletteMode = 'horizontal' | 'wheel';
 interface WinRecord { player: string; code: string; }
@@ -95,6 +96,13 @@ function AppInner() {
         {/* Nav */}
         <nav className="flex flex-1 flex-col gap-1.5 p-3">
           <SidebarItem
+            icon={<UserCircle className="h-5 w-5" />}
+            label={t('section_profile')}
+            active={section === 'profile'}
+            collapsed={collapsed}
+            onClick={() => setSection('profile')}
+          />
+          <SidebarItem
             icon={<Dices className="h-5 w-5" />}
             label={t('section_roulette')}
             active={section === 'roulette'}
@@ -155,17 +163,19 @@ function AppInner() {
         {/* Top bar */}
         <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-ink-800/40 bg-ink-950/30 px-6 backdrop-blur-md">
           <h2 className="text-lg font-bold text-ink-200">
-            {section === 'roulette'
-              ? t('section_roulette')
-              : section === 'giveaways'
-                ? t('section_giveaways')
-                : section === 'auction'
-                  ? t('section_auction')
-                  : section === 'statistics'
-                    ? t('section_statistics')
-                    : section === 'settings'
-                      ? t('site_settings')
-                      : ''}
+            {section === 'profile'
+              ? t('profile_title')
+              : section === 'roulette'
+                ? t('section_roulette')
+                : section === 'giveaways'
+                  ? t('section_giveaways')
+                    : section === 'auction'
+                      ? t('section_auction')
+                        : section === 'statistics'
+                          ? t('section_statistics')
+                          : section === 'settings'
+                            ? t('site_settings')
+                            : ''}
           </h2>
 
           {/* Centered mode switcher for roulette */}
@@ -219,6 +229,10 @@ function AppInner() {
 
         {/* Content — all sections stay mounted (hidden when inactive) so state is preserved across switches */}
         <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-6 py-8 min-h-0">
+          <div className={section === 'profile' ? 'flex flex-1 flex-col min-h-0' : 'hidden'}>
+            <Profile />
+          </div>
+
           <div className={section === 'home' ? 'flex flex-1 flex-col min-h-0' : 'hidden'}>
             <Home key="home" restartKey={homeRestart} onNavigate={(s) => setSection(s as Section)} active={section === 'home'} onLogoClick={restartHome} />
           </div>

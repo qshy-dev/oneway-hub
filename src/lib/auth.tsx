@@ -59,14 +59,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchProfile]);
 
   const signInWithTwitch = useCallback(async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'twitch',
       options: {
         redirectTo: window.location.origin,
+        skipBrowserRedirect: true,
       },
     });
     if (error) {
       console.error('Twitch sign-in error:', error.message);
+      return;
+    }
+    if (data?.url) {
+      window.open(data.url, '_blank');
     }
   }, []);
 

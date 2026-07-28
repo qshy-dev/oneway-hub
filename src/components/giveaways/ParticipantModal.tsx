@@ -110,10 +110,11 @@ export function ParticipantModal({
     setInfoLoading(true);
     setInfoLoaded(false);
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     const params = new URLSearchParams({ login: participant.username });
     if (channel) params.set('channel', channel);
     const fnUrl = `${supabaseUrl}/functions/v1/twitch-user-info?${params.toString()}`;
-    fetch(fnUrl, { headers: { 'Content-Type': 'application/json' } })
+    fetch(fnUrl, { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${supabaseKey}` } })
       .then((r) => r.json())
       .then((data) => {
         if (!cancelled) {
