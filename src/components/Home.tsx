@@ -1,4 +1,4 @@
-import { useState, useLayoutEffect, useRef, useEffect } from 'react';
+import { useState, useLayoutEffect, useRef, useEffect, useMemo } from 'react';
 import { Crosshair as CrosshairIcon, Dices, Gift, ArrowRight, Info, Map, CheckCircle2, Loader2, Circle, ChevronDown, Gavel, BarChart3, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { TwitchIcon } from '@/components/TwitchIcon';
@@ -7,13 +7,15 @@ import { useTypewriter } from '@/lib/useTypewriter';
 import { useAuth } from '@/lib/auth';
 
 type RoadmapStatus = 'done' | 'wip' | 'planned';
-type HomeSection = 'roulette' | 'giveaways' | 'auction' | 'statistics';
+type HomeSection = 'roulette' | 'giveaways' | 'auction' | 'statistics' | 'profile';
 
 export function Home({ onNavigate, active, onLogoClick, restartKey }: { onNavigate: (s: HomeSection) => void; active: boolean; onLogoClick: () => void; restartKey: number }) {
   const { t } = useI18n();
   const { profile, loading: authLoading, signInWithTwitch, signOut } = useAuth();
   const [aboutOpen, setAboutOpen] = useState(false);
   const [roadmapOpen, setRoadmapOpen] = useState(false);
+  const [roadmapFilters, setRoadmapFilters] = useState<Record<RoadmapStatus, boolean>>({ done: false, wip: true, planned: true });
+  const [roadmapPage, setRoadmapPage] = useState(0);
   const [logoSpin, setLogoSpin] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoScrollPaused = useRef(false);
@@ -161,16 +163,27 @@ export function Home({ onNavigate, active, onLogoClick, restartKey }: { onNaviga
     { label: t('home_roadmap_item_5'), status: 'done' },
     { label: t('home_roadmap_item_6'), status: 'done' },
     { label: t('home_roadmap_item_7'), status: 'done' },
-    { label: t('home_roadmap_item_8'), status: 'wip' },
-    { label: t('home_roadmap_item_9'), status: 'planned' },
-    { label: t('home_roadmap_item_10'), status: 'planned' },
-    { label: t('home_roadmap_item_11'), status: 'planned' },
-    { label: t('home_roadmap_item_12'), status: 'planned' },
+    { label: t('home_roadmap_item_8'), status: 'done' },
+    { label: t('home_roadmap_item_9'), status: 'done' },
+    { label: t('home_roadmap_item_10'), status: 'done' },
+    { label: t('home_roadmap_item_11'), status: 'done' },
+    { label: t('home_roadmap_item_12'), status: 'wip' },
     { label: t('home_roadmap_item_13'), status: 'planned' },
     { label: t('home_roadmap_item_14'), status: 'planned' },
     { label: t('home_roadmap_item_15'), status: 'planned' },
     { label: t('home_roadmap_item_16'), status: 'planned' },
+    { label: t('home_roadmap_item_17'), status: 'planned' },
+    { label: t('home_roadmap_item_18'), status: 'planned' },
+    { label: t('home_roadmap_item_19'), status: 'planned' },
+    { label: t('home_roadmap_item_20'), status: 'planned' },
   ];
+
+  const ROADMAP_PAGE_SIZE = 10;
+  const filteredRoadmap = useMemo(() => roadmapItems.filter((item) => roadmapFilters[item.status]), [roadmapItems, roadmapFilters]);
+  const roadmapPageCount = Math.max(1, Math.ceil(filteredRoadmap.length / ROADMAP_PAGE_SIZE));
+  const safeRoadmapPage = Math.min(roadmapPage, roadmapPageCount - 1);
+  const roadmapPageItems = filteredRoadmap.slice(safeRoadmapPage * ROADMAP_PAGE_SIZE, safeRoadmapPage * ROADMAP_PAGE_SIZE + ROADMAP_PAGE_SIZE);
+  const toggleRoadmapFilter = (status: RoadmapStatus) => { setRoadmapFilters((f) => ({ ...f, [status]: !f[status] })); setRoadmapPage(0); };
 
   return (
     <div ref={containerRef} className="flex flex-1 flex-col items-center justify-center min-h-0">
@@ -247,10 +260,18 @@ export function Home({ onNavigate, active, onLogoClick, restartKey }: { onNaviga
             ) : profile ? (
               <div className="flex flex-1 items-center justify-center gap-3">
                 {profile.twitch_avatar && (
-                  <img src={profile.twitch_avatar} alt="" className="h-8 w-8 rounded-full border border-ink-700" />
+                  <img
+                    src={profile.twitch_avatar}
+                    alt=""
+                    onClick={() => onNavigate('profile' as HomeSection)}
+                    className="h-8 w-8 cursor-pointer rounded-full border border-ink-700 transition hover:border-accent-500/50"
+                  />
                 )}
-                <span className="text-sm font-semibold text-ink-100">
-                  {profile.twitch_display_name ?? profile.twitch_username ?? 'User'}
+                <span
+                  onClick={() => onNavigate('profile' as HomeSection)}
+                  className="cursor-pointer text-sm font-semibold text-ink-100 transition hover:text-accent-400"
+                >
+                  @{profile.twitch_username ?? 'user'}
                 </span>
                 <button
                   onClick={signOut}
@@ -369,13 +390,30 @@ export function Home({ onNavigate, active, onLogoClick, restartKey }: { onNaviga
                 {roadmapOpen && (
                   <motion.div key="roadmap-content" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }} className="overflow-hidden">
                     <div className="px-6 pt-2 pb-6">
-                      <div className="mb-4 flex flex-wrap gap-4">
-                        <span className="flex items-center gap-1.5 text-xs font-medium text-ink-400"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> {t('home_roadmap_done')}</span>
-                        <span className="flex items-center gap-1.5 text-xs font-medium text-ink-400"><Loader2 className="h-3.5 w-3.5 animate-spin text-amber-400" /> {t('home_roadmap_wip')}</span>
-                        <span className="flex items-center gap-1.5 text-xs font-medium text-ink-400"><Circle className="h-3.5 w-3.5 text-ink-500" /> {t('home_roadmap_planned')}</span>
+                      <div className="mb-4 flex flex-wrap gap-2">
+                        <button
+                          onClick={() => toggleRoadmapFilter('done')}
+                          className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${roadmapFilters.done ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400' : 'border-ink-800 bg-ink-950/40 text-ink-600 hover:text-ink-400'}`}
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" /> {t('home_roadmap_done')}
+                        </button>
+                        <button
+                          onClick={() => toggleRoadmapFilter('wip')}
+                          className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${roadmapFilters.wip ? 'border-amber-500/50 bg-amber-500/10 text-amber-400' : 'border-ink-800 bg-ink-950/40 text-ink-600 hover:text-ink-400'}`}
+                        >
+                          <Loader2 className={`h-3.5 w-3.5 ${roadmapFilters.wip ? 'animate-spin' : ''}`} /> {t('home_roadmap_wip')}
+                        </button>
+                        <button
+                          onClick={() => toggleRoadmapFilter('planned')}
+                          className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${roadmapFilters.planned ? 'border-accent-500/50 bg-accent-500/10 text-accent-400' : 'border-ink-800 bg-ink-950/40 text-ink-600 hover:text-ink-400'}`}
+                        >
+                          <Circle className="h-3.5 w-3.5" /> {t('home_roadmap_planned')}
+                        </button>
                       </div>
                       <ul className="flex flex-col gap-2.5">
-                        {roadmapItems.map((item, i) => (
+                        {roadmapPageItems.length === 0 ? (
+                          <li className="flex h-20 items-center justify-center text-sm text-ink-600">{t('home_roadmap_done')}</li>
+                        ) : roadmapPageItems.map((item, i) => (
                           <li key={i} className="flex items-start gap-3 rounded-lg border border-ink-800/60 bg-ink-950/40 px-3 py-2.5">
                             {item.status === 'done' && <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />}
                             {item.status === 'wip' && <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-amber-400" />}
@@ -384,6 +422,27 @@ export function Home({ onNavigate, active, onLogoClick, restartKey }: { onNaviga
                           </li>
                         ))}
                       </ul>
+                      {roadmapPageCount > 1 && (
+                        <div className="mt-4 flex items-center justify-between">
+                          <button
+                            onClick={() => setRoadmapPage((p) => Math.max(0, p - 1))}
+                            disabled={safeRoadmapPage === 0}
+                            className="flex h-8 items-center gap-1 rounded-lg border border-ink-800 bg-ink-900/60 px-3 text-xs font-semibold text-ink-300 transition hover:bg-ink-800 disabled:opacity-40"
+                          >
+                            <ChevronDown className="h-3.5 w-3.5 rotate-90" />
+                          </button>
+                          <span className="text-xs font-medium text-ink-500">
+                            {t('home_roadmap_page', String(safeRoadmapPage + 1), String(roadmapPageCount))}
+                          </span>
+                          <button
+                            onClick={() => setRoadmapPage((p) => Math.min(roadmapPageCount - 1, p + 1))}
+                            disabled={safeRoadmapPage >= roadmapPageCount - 1}
+                            className="flex h-8 items-center gap-1 rounded-lg border border-ink-800 bg-ink-900/60 px-3 text-xs font-semibold text-ink-300 transition hover:bg-ink-800 disabled:opacity-40"
+                          >
+                            <ChevronDown className="h-3.5 w-3.5 -rotate-90" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 )}

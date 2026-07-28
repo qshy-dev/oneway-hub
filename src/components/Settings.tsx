@@ -28,6 +28,7 @@ export function Settings() {
   const { rows, add, archive, restore, remove, setRoulette, resetToDefault } = useUserCrosshairsCtx();
   const { prefs, setIncludeRandom, setIncludeOwn, setOwnCode } = useSettings();
   const [ownInput, setOwnInput] = useState(prefs.ownCode ?? '');
+  const previewBg = prefs.theme === 'light' ? 'light' : 'dark';
 
   const activeRows = useMemo(
     () =>
@@ -210,7 +211,7 @@ export function Settings() {
                   <CrosshairCodePreview
                     code={r.code}
                     className="h-24 w-24 rounded-lg border border-ink-800 bg-ink-850 transition group-hover:border-accent-500/50"
-                    background="dark"
+                    background={previewBg}
                   />
                 </button>
                 <button
@@ -264,7 +265,7 @@ export function Settings() {
                   <CrosshairCodePreview
                     code={r.code}
                     className="h-24 w-24 rounded-lg border border-ink-800 bg-ink-850 opacity-90 transition group-hover:border-accent-500/50 group-hover:opacity-100"
-                    background="dark"
+                    background={previewBg}
                   />
                 </button>
                 <button
@@ -470,7 +471,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       }`}
     >
       <span
-        className={`absolute top-0.5 h-5 w-5 rounded-full bg-ink-100 transition ${
+        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition ${
           checked ? 'left-[22px]' : 'left-0.5'
         }`}
       />

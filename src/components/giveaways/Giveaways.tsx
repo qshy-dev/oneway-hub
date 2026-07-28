@@ -39,7 +39,7 @@ let logIdCounter = 0;
 export function Giveaways() {
   const { t } = useI18n();
   const [channel, setChannel] = useState(() => localStorage.getItem('gw_channel') ?? '');
-  const [modeId, setModeId] = useState<GiveawayModeId>('keyword');
+  const [modeId, setModeId] = useState<GiveawayModeId>(() => (localStorage.getItem('gw_mode_id') as GiveawayModeId) || 'keyword');
   const [config, setConfig] = useState<Record<string, string | number | boolean>>(() => {
     const init: Record<string, string | number | boolean> = {};
     for (const m of modeList) for (const f of m.fields) init[f.key] = f.default;
@@ -47,6 +47,8 @@ export function Giveaways() {
     if (savedKeyword != null) init.keyword = savedKeyword;
     const savedMatchType = localStorage.getItem('gw_match_type');
     if (savedMatchType != null) init.matchType = savedMatchType;
+    const savedTargetMode = localStorage.getItem('gw_target_mode');
+    if (savedTargetMode != null) init.targetMode = savedTargetMode;
     return init;
   });
   const [useTimer, setUseTimer] = useState(false);
@@ -463,7 +465,7 @@ export function Giveaways() {
             <div className="relative">
               <select
                 value={modeId}
-                onChange={(e) => setModeId(e.target.value as GiveawayModeId)}
+                onChange={(e) => { const v = e.target.value as GiveawayModeId; setModeId(v); localStorage.setItem('gw_mode_id', v); }}
                 disabled={phase === 'collecting'}
                 className="flex h-[42px] w-full appearance-none items-center rounded-lg border border-ink-800 bg-ink-950 px-3 pr-9 text-sm text-ink-200 focus:border-accent-500 focus:outline-none disabled:opacity-50"
               >
@@ -503,7 +505,12 @@ export function Giveaways() {
                   {f.type === 'select' ? (
                     <select
                       value={String(config[f.key] ?? f.default)}
-                      onChange={(e) => setConfig((c) => ({ ...c, [f.key]: e.target.value }))}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setConfig((c) => ({ ...c, [f.key]: val }));
+                        if (f.key === 'matchType') localStorage.setItem('gw_match_type', val);
+                        if (f.key === 'targetMode') localStorage.setItem('gw_target_mode', val);
+                      }}
                       disabled={phase === 'collecting'}
                       className="flex h-[42px] w-full appearance-none items-center rounded-lg border border-ink-800 bg-ink-950 px-3 text-sm text-ink-200 focus:border-accent-500 focus:outline-none disabled:opacity-50"
                     >
@@ -657,7 +664,7 @@ export function Giveaways() {
           <ChatFeed messages={chatFeed} connected={connected} livePulse={livePulse} />
         </div>
         <div className="rounded-2xl border border-ink-800 bg-ink-900/50 p-5">
-          <ParticipantTable participants={participants} onSelectParticipant={openParticipantModal} />
+          <ParticipantTable participants={participants} onSelectParticipant={openParticipantModal} channel={connectedChannel} onParticipantsUpdate={setParticipants} />
         </div>
       </div>
 
@@ -795,7 +802,10 @@ export function Giveaways() {
         onClose={closeModal}
         autoStartTimer={autoStartTimer}
         onResponded={onWinnerResponded}
-        channel={connectedChannel}
+        channel={connectedChannel || channel.trim().replace(/^#/, '').toLowerCase()}
+        onFollowsUpdate={(username, follows) => {
+          setParticipants((prev) => prev.map((p) => p.username === username ? { ...p, followsChannel: follows } : p));
+        }}
       />
 
       <GiveawaySettingsModal

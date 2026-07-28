@@ -15,6 +15,7 @@ interface ParticipantModalProps {
   autoStartTimer: boolean;
   onResponded?: () => void;
   channel?: string;
+  onFollowsUpdate?: (username: string, follows: boolean) => void;
 }
 
 function avatarUrlFor(username: string): string {
@@ -38,6 +39,7 @@ export function ParticipantModal({
   autoStartTimer,
   onResponded,
   channel,
+  onFollowsUpdate,
 }: ParticipantModalProps) {
   const { t, lang } = useI18n();
   const locale = lang === 'en' ? 'en-US' : 'ru-RU';
@@ -52,6 +54,8 @@ export function ParticipantModal({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevCountRef = useRef(0);
+  const followsUpdateRef = useRef(onFollowsUpdate);
+  followsUpdateRef.current = onFollowsUpdate;
 
   const userMessages = useMemo(() => {
     if (!participant) return [];
@@ -111,7 +115,7 @@ export function ParticipantModal({
     setInfoLoaded(false);
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-    const params = new URLSearchParams({ login: participant.username });
+    const params = new URLSearchParams({ login: participant.username, _t: String(Date.now()) });
     if (channel) params.set('channel', channel);
     const fnUrl = `${supabaseUrl}/functions/v1/twitch-user-info?${params.toString()}`;
     fetch(fnUrl, { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${supabaseKey}` } })
@@ -120,9 +124,12 @@ export function ParticipantModal({
         if (!cancelled) {
           if (data?.createdAt) setCreatedAt(data.createdAt);
           if (data?.followedAt) setFollowedAt(data.followedAt);
+          if (followsUpdateRef.current && participant) {
+            followsUpdateRef.current(participant.username, !!data?.followedAt);
+          }
         }
       })
-      .catch(() => { /* ignore */ })
+      .catch((err) => { console.error('[ParticipantModal] fetch error:', err); })
       .finally(() => { if (!cancelled) { setInfoLoading(false); setInfoLoaded(true); } });
     return () => { cancelled = true; };
   }, [participant, channel]);
@@ -194,7 +201,7 @@ export function ParticipantModal({
 
             {/* Participant info */}
             <div className="flex flex-wrap gap-3 border-b border-ink-800 px-5 py-3">
-              <div className="flex items-center gap-2 rounded-lg bg-ink-850/60 px-3 py-2">
+              <div className="flex flex-1 min-w-[180px] items-center gap-2 rounded-lg bg-ink-850/60 px-3 py-2">
                 {infoLoading ? (
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin text-ink-500" />
                 ) : createdAt ? (
@@ -202,7 +209,7 @@ export function ParticipantModal({
                 ) : (
                   <CalendarDays className="h-4 w-4 shrink-0 text-ink-600" />
                 )}
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">{t('gw_pm_account_created')}</div>
                   <div className="truncate text-sm font-medium text-ink-200">
                     {infoLoading
@@ -213,30 +220,34 @@ export function ParticipantModal({
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 rounded-lg bg-ink-850/60 px-3 py-2">
+              <div className="flex flex-1 min-w-[180px] items-center gap-2 rounded-lg bg-ink-850/60 px-3 py-2">
                 {infoLoading ? (
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin text-ink-500" />
                 ) : followedAt ? (
                   <Heart className="h-4 w-4 shrink-0 text-pink-400" />
+                ) : infoLoaded && channel ? (
+                  <Heart className="h-4 w-4 shrink-0 text-ink-600" />
                 ) : (
                   <Heart className="h-4 w-4 shrink-0 text-ink-600" />
                 )}
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">{t('gw_pm_following_since')}</div>
                   <div className="truncate text-sm font-medium text-ink-200">
                     {infoLoading
                       ? '…'
                       : followedAt
                         ? new Date(followedAt).toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' })
-                        : t('gw_pm_no_data')}
+                        : infoLoaded && channel
+                          ? t('gw_pm_not_following')
+                          : t('gw_pm_no_data')}
                   </div>
                 </div>
               </div>
               {participant.roles.length > 0 && (
-                <div className="flex items-center gap-2 rounded-lg bg-ink-850/60 px-3 py-2">
-                  <div className="min-w-0">
+                <div className="flex flex-1 min-w-[180px] items-center gap-2 rounded-lg bg-ink-850/60 px-3 py-2">
+                  <div className="min-w-0 flex-1">
                     <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">{t('gw_pm_roles')}</div>
-                    <div className="flex items-center gap-1 pt-0.5">
+                    <div className="flex flex-wrap items-center gap-1 pt-0.5">
                       <RoleBadges roles={participant.roles} size={14} />
                     </div>
                   </div>

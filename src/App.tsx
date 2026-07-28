@@ -73,7 +73,7 @@ function AppInner() {
         className={`sticky top-0 flex h-screen shrink-0 flex-col overflow-hidden border-r border-ink-800/40 bg-ink-950/30 backdrop-blur-md transition-[width] duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${sidebarWidth}`}
       >
         {/* Logo */}
-        <div className="flex h-16 shrink-0 items-center border-b border-ink-800/60 px-4">
+        <div className="flex h-16 shrink-0 items-center border-b border-ink-800/60 px-3">
           <button
             onClick={handleSidebarLogo}
             className="group flex items-center gap-3 rounded-lg transition-transform duration-150 active:scale-90"
@@ -339,8 +339,8 @@ function ModeButton({ active, onClick, icon, label }: {
       onClick={onClick}
       className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
         active
-          ? 'bg-ink-100 text-ink-950'
-          : 'text-ink-400 hover:text-ink-100'
+          ? 'bg-accent-500 text-white shadow-md shadow-accent-500/30'
+          : 'text-ink-400 hover:text-ink-100 hover:bg-ink-800/50'
       }`}
     >
       {icon}

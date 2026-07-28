@@ -7,19 +7,21 @@ import { useI18n } from '@/i18n';
 const ROW_HEIGHT = 56;
 const VISIBLE_ROWS = 12;
 
-type SortKey = 'firstSeenAt' | 'messageCount' | 'username';
+type SortKey = 'firstSeenAt' | 'messageCount' | 'username' | 'followsChannel';
 
 interface ParticipantListProps {
   participants: Participant[];
   onSelectParticipant?: (p: Participant) => void;
   hideHeader?: boolean;
+  channel?: string;
+  onParticipantsUpdate?: (updater: (prev: Participant[]) => Participant[]) => void;
 }
 
 function avatarUrlFor(username: string): string {
   return `https://unavatar.io/twitch/${encodeURIComponent(username)}`;
 }
 
-export function ParticipantTable({ participants, onSelectParticipant, hideHeader }: ParticipantListProps) {
+export function ParticipantTable({ participants, onSelectParticipant, hideHeader, channel, onParticipantsUpdate }: ParticipantListProps) {
   const { t } = useI18n();
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('firstSeenAt');
@@ -33,12 +35,13 @@ export function ParticipantTable({ participants, onSelectParticipant, hideHeader
       ? participants.filter((p) => p.displayName.toLowerCase().includes(q) || p.username.toLowerCase().includes(q))
       : participants;
     const sorted = [...list].sort((a, b) => {
-      let cmp = 0;
-      if (sortKey === 'messageCount') cmp = a.messageCount - b.messageCount;
-      else if (sortKey === 'username') cmp = a.username.localeCompare(b.username);
-      else cmp = a.firstSeenAt - b.firstSeenAt;
-      return sortDir === 'asc' ? cmp : -cmp;
-    });
+        let cmp = 0;
+        if (sortKey === 'messageCount') cmp = a.messageCount - b.messageCount;
+        else if (sortKey === 'username') cmp = a.username.localeCompare(b.username);
+        else if (sortKey === 'followsChannel') cmp = (a.followsChannel ? 1 : 0) - (b.followsChannel ? 1 : 0);
+        else cmp = a.firstSeenAt - b.firstSeenAt;
+        return sortDir === 'asc' ? cmp : -cmp;
+      });
     return sorted;
   }, [participants, query, sortKey, sortDir]);
 
@@ -102,6 +105,7 @@ export function ParticipantTable({ participants, onSelectParticipant, hideHeader
         <SortChip label={t('gw_sort_time')} active={sortKey === 'firstSeenAt'} dir={sortDir} onClick={() => toggleSort('firstSeenAt')} />
         <SortChip label={t('gw_sort_nick')} active={sortKey === 'username'} dir={sortDir} onClick={() => toggleSort('username')} />
         <SortChip label={t('gw_sort_messages')} active={sortKey === 'messageCount'} dir={sortDir} onClick={() => toggleSort('messageCount')} />
+
       </div>
 
       <div
@@ -136,6 +140,7 @@ export function ParticipantTable({ participants, onSelectParticipant, hideHeader
                     </div>
                     <div className="truncate text-xs text-ink-500">@{p.username} · {new Date(p.firstSeenAt).toLocaleTimeString('ru-RU')}</div>
                   </div>
+
                   <div className="shrink-0 text-right">
                     <span className="text-sm font-semibold tabular-nums text-ink-200">{p.messageCount.toLocaleString('ru-RU')}</span>
                     <span className="ml-1 text-xs text-ink-500">{t('gw_messages_short')}</span>

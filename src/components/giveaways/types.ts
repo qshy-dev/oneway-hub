@@ -29,6 +29,7 @@ export interface Participant {
   firstSeenAt: number;
   messageCount: number;
   roles: ChatterRole[];
+  followsChannel?: boolean | null;
 }
 
 export interface ChatMessage {

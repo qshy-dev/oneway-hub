@@ -3,7 +3,6 @@ export type Lot = {
   name: string;
   price: number;
   order: number;
-  pinned?: boolean;
 };
 
 export type Bid = {

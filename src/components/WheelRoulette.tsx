@@ -4,6 +4,7 @@ import { type ProCrosshair } from '@/data/proCrosshairs';
 import { CrosshairCodePreview } from './CrosshairPreview';
 import { type Crosshair } from 'csgo-sharecode';
 import { useI18n } from '@/i18n';
+import { useSettings } from '@/lib/settings';
 import {
   decodeSafe,
   DetailModal,
@@ -37,13 +38,22 @@ const RADIUS = HALF - 1;
 const IMG_RADIUS = 248;
 const DEFAULT_DURATION = 10;
 
-const PALETTE = [
+const PALETTE_DARK = [
   { a: '#1e2235', b: '#262d44' },
   { a: '#1a242e', b: '#223038' },
   { a: '#221e30', b: '#2e2840' },
   { a: '#1d2622', b: '#263330' },
   { a: '#241e2a', b: '#322840' },
   { a: '#1f2128', b: '#292b38' },
+];
+
+const PALETTE_LIGHT = [
+  { a: '#c8c8d0', b: '#d8d8e0' },
+  { a: '#c0c4cc', b: '#d0d4dc' },
+  { a: '#ccc4d0', b: '#dccedc' },
+  { a: '#c4ccc4', b: '#d4dcd4' },
+  { a: '#ccc8c8', b: '#dcd8d8' },
+  { a: '#c4c4cc', b: '#d4d4dc' },
 ];
 
 function polar(deg: number, r: number): [number, number] {
@@ -70,6 +80,9 @@ function imgSizeFor(segDeg: number): number {
 
 export function WheelRoulette({ items, onWin, history, includeRandom, sidebarCollapsed }: WheelRouletteProps) {
   const { t } = useI18n();
+  const { prefs } = useSettings();
+  const isLight = prefs.theme === 'light';
+  const PALETTE = isLight ? PALETTE_LIGHT : PALETTE_DARK;
 
   const fullSectors = useMemo<Sector[]>(() => {
     const base: Sector[] = items.map((p, i) => ({ index: i, player: p.player, code: p.code }));
@@ -457,7 +470,7 @@ export function WheelRoulette({ items, onWin, history, includeRandom, sidebarCol
                 })}
                 <radialGradient id="center-shade" cx="50%" cy="50%" r="50%">
                   <stop offset="55%" stopColor="rgba(0,0,0,0)" />
-                  <stop offset="100%" stopColor="rgba(0,0,0,0.35)" />
+                  <stop offset="100%" stopColor={isLight ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.35)'} />
                 </radialGradient>
               </defs>
 
@@ -467,8 +480,7 @@ export function WheelRoulette({ items, onWin, history, includeRandom, sidebarCol
                   key={i}
                   d={arcPath(i, seg)}
                   fill={`url(#s${i})`}
-                  stroke="rgba(var(--accent-rgb),0.10)"
-                  strokeWidth={N === 1 ? 0 : 1}
+                  stroke={isLight ? 'rgba(0,0,0,0.08)' : 'rgba(var(--accent-rgb),0.10)'}
                 />
               ))}
 
@@ -476,13 +488,13 @@ export function WheelRoulette({ items, onWin, history, includeRandom, sidebarCol
               {N > 1 && sectors.map((_, i) => {
                 const [lx, ly] = polar(i * seg, RADIUS);
                 return (
-                  <line key={`d${i}`} x1={0} y1={0} x2={lx} y2={ly} stroke="rgba(var(--accent-rgb),0.10)" strokeWidth={1} />
+                  <line key={`d${i}`} x1={0} y1={0} x2={lx} y2={ly} stroke={isLight ? 'rgba(0,0,0,0.06)' : 'rgba(var(--accent-rgb),0.10)'} strokeWidth={1} />
                 );
               })}
 
               {/* Outer rim — subtle double stroke for volume */}
               <circle cx={0} cy={0} r={RADIUS - 0.5} fill="none" stroke="rgba(var(--accent-rgb),0.28)" strokeWidth={2.5} />
-              <circle cx={0} cy={0} r={RADIUS - 4} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
+              <circle cx={0} cy={0} r={RADIUS - 4} fill="none" stroke={isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)'} strokeWidth={1} />
 
               {/* Subtle inner shading for depth */}
               <circle cx={0} cy={0} r={RADIUS} fill="url(#center-shade)" />
