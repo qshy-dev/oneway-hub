@@ -12,7 +12,7 @@ interface FollowedChannel {
 
 export function Profile() {
   const { t } = useI18n();
-  const { profile, user, loading, signInWithTwitch, signOut } = useAuth();
+  const { profile, user, loading, signInWithTwitch, signOut, session } = useAuth();
   const [showFollows, setShowFollows] = useState(false);
   const [follows, setFollows] = useState<FollowedChannel[]>([]);
   const [followsLoading, setFollowsLoading] = useState(false);
@@ -26,7 +26,10 @@ export function Profile() {
     try {
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/twitch-follows?login=${encodeURIComponent(profile.twitch_username)}`;
       const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
+        headers: {
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'X-Provider-Token': session?.provider_token ?? '',
+        },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();

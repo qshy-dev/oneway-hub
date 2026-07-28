@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
-  Gavel, Gift, Users, Coins, DollarSign, Package, Trophy, CalendarDays, TrendingUp,
+  Gavel, Gift, Users, Coins, DollarSign, Package, Trophy, CalendarDays, Banknote,
 } from 'lucide-react';
 import { useI18n } from '@/i18n';
 
@@ -18,8 +18,9 @@ function generateEmptyCalendar(): number[] {
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export function Statistics() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [section] = useState<'all' | 'auction' | 'giveaways'>('all');
+  const currencySymbol = lang === 'ru' ? '₽' : '$';
 
   const calendar = useMemo(() => generateEmptyCalendar(), []);
 
@@ -29,7 +30,7 @@ export function Statistics() {
     { icon: <Users className="h-5 w-5" />, label: t('stat_participants_total'), value: '0', accent: 'text-blue-400' },
     { icon: <Users className="h-5 w-5" />, label: t('stat_participants_unique'), value: '0', accent: 'text-cyan-400' },
     { icon: <Coins className="h-5 w-5" />, label: t('stat_points_spent'), value: '0', accent: 'text-amber-400' },
-    { icon: <DollarSign className="h-5 w-5" />, label: t('stat_donations'), value: '0 ₽', accent: 'text-green-400' },
+    { icon: <Banknote className="h-5 w-5" />, label: t('stat_donations'), value: `0 ${currencySymbol}`, accent: 'text-green-400' },
     { icon: <Package className="h-5 w-5" />, label: t('stat_lots_total'), value: '0', accent: 'text-pink-400' },
     { icon: <Trophy className="h-5 w-5" />, label: t('stat_top_winner'), value: '—', accent: 'text-yellow-400' },
   ];
@@ -38,7 +39,7 @@ export function Statistics() {
     { icon: <Package className="h-5 w-5" />, label: t('stat_biggest_auction'), value: '—', sub: t('stat_lots_count').replace('{0}', '0') },
     { icon: <Users className="h-5 w-5" />, label: t('stat_popular_auction'), value: '—', sub: t('stat_unique_participants').replace('{0}', '0') },
     { icon: <Coins className="h-5 w-5" />, label: t('stat_most_points'), value: '—', sub: '0' },
-    { icon: <DollarSign className="h-5 w-5" />, label: t('stat_most_donations'), value: '—', sub: '0 ₽' },
+    { icon: <DollarSign className="h-5 w-5" />, label: t('stat_most_donations'), value: '—', sub: `0 ${currencySymbol}` },
   ];
 
   const heatColors = [
