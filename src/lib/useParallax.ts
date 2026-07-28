@@ -14,7 +14,7 @@ const RADIUS = 180;
 const DEPTHS: Record<string, number> = {
   'parallax-logo': 1.4,
   'parallax-btn': 0.6,
-  'parallax-card': 2.2,
+  'parallax-card': 0.7,
 };
 
 export function useParallax() {

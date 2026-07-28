@@ -430,7 +430,7 @@ export function WheelRoulette({ items, onWin, history, includeRandom, sidebarCol
       {/* Wheel */}
       <div className="flex flex-1 min-h-0 items-center justify-center">
         <div
-          className={`relative rounded-full transition-shadow duration-700 ${idle ? 'idle-glow' : ''}`}
+          className={`relative overflow-hidden rounded-full transition-shadow duration-700 ${idle ? 'idle-glow' : ''}`}
           style={{ width: 'min(82vw, 820px, calc(100vh - 260px))', height: 'min(82vw, 820px, calc(100vh - 260px))' }}
         >
           {/* Pointer */}
