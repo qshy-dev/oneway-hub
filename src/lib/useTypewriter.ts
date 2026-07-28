@@ -8,8 +8,8 @@ import { useEffect, useRef, useState } from 'react';
  * continues with the correct character. Returns the currently displayed
  * string and whether the animation has finished.
  */
-export function useTypewriter(text: string, opts?: { typoChance?: number; speed?: number }) {
-  const { typoChance = 10, speed = 65 } = opts ?? {};
+export function useTypewriter(text: string, opts?: { typoChance?: number; speed?: number; restartKey?: number }) {
+  const { typoChance = 10, speed = 65, restartKey = 0 } = opts ?? {};
   const [display, setDisplay] = useState('');
   const [done, setDone] = useState(false);
   const idxRef = useRef(0);
@@ -70,7 +70,7 @@ export function useTypewriter(text: string, opts?: { typoChance?: number; speed?
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [text, typoChance, speed]);
+  }, [text, typoChance, speed, restartKey]);
 
   return { display, done };
 }
