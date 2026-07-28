@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Play, RotateCcw,
   Plus, Search, Gavel, Archive, Trash2, Save, X, Clock, History as HistoryIcon, ListOrdered,
-  ScrollText, Minus, Pencil, Check, Eye, EyeOff,
+  ScrollText, Minus, Pencil, Check, Eye, EyeOff, Percent,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useI18n } from '@/i18n';
@@ -171,6 +171,7 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
   const [rulesOpen, setRulesOpen] = useState(false);
   const [rules, setRules] = useState<string>(loadRules);
   const [showTotalSum, setShowTotalSum] = useState(false);
+  const [showPercent, setShowPercent] = useState(false);
   const tickRef = useRef<number | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -289,6 +290,8 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
     if (!q) return sortedLots;
     return sortedLots.filter((l) => l.name.toLowerCase().includes(q));
   }, [sortedLots, search]);
+
+  const totalSum = useMemo(() => lots.reduce((s, l) => s + l.price, 0), [lots]);
 
   const filteredArchive = useMemo(() => {    const q = archiveSearch.trim().toLowerCase();
     let res = archive;
@@ -445,10 +448,17 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
               <button
                 onClick={() => setShowTotalSum((s) => !s)}
                 title={t('auction_toggle_total_sum')}
-                className="flex items-center gap-1.5 rounded-lg border border-ink-700 bg-ink-800 px-2.5 py-2 text-sm font-semibold text-ink-500 transition hover:text-ink-300"
+                className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold transition whitespace-nowrap ${showTotalSum ? 'border-accent-500/50 bg-accent-500/10 text-accent-400' : 'border-ink-700 bg-ink-800 text-ink-200 hover:bg-ink-700'}`}
               >
                 {showTotalSum ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                {showTotalSum && <span className="tabular-nums text-ink-200">{lots.reduce((s, l) => s + l.price, 0)} {t('currency_symbol')}</span>}
+                {showTotalSum && <span className="tabular-nums">{totalSum} {t('currency_symbol')}</span>}
+              </button>
+              <button
+                onClick={() => setShowPercent((s) => !s)}
+                title={t('auction_toggle_percent')}
+                className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-semibold transition whitespace-nowrap ${showPercent ? 'border-accent-500/50 bg-accent-500/10 text-accent-400' : 'border-ink-700 bg-ink-800 text-ink-200 hover:bg-ink-700'}`}
+              >
+                <Percent className="h-4 w-4" />
               </button>
             </div>
 
@@ -532,6 +542,14 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
                                 </button>
                               )}
                             </div>
+                            {/* Win percent (toggle) */}
+                            {showPercent && (
+                              <div className="w-16 py-2.5 px-2 text-center">
+                                <span className="text-sm font-bold tabular-nums text-accent-400">
+                                  {totalSum > 0 ? (lot.price / totalSum * 100).toFixed(2) : '0.00'}%
+                                </span>
+                              </div>
+                            )}
                             {/* Price */}
                             <div className="w-28 py-2.5 px-3">
                               <div className="flex items-center justify-center gap-1">

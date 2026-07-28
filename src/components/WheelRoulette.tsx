@@ -39,21 +39,21 @@ const IMG_RADIUS = 248;
 const DEFAULT_DURATION = 10;
 
 const PALETTE_DARK = [
-  { a: '#1e2235', b: '#262d44' },
-  { a: '#1a242e', b: '#223038' },
-  { a: '#221e30', b: '#2e2840' },
-  { a: '#1d2622', b: '#263330' },
-  { a: '#241e2a', b: '#322840' },
-  { a: '#1f2128', b: '#292b38' },
+  { a: '#22385f', b: '#2e4d80' },
+  { a: '#164a4a', b: '#246b6b' },
+  { a: '#1f4a2a', b: '#2e6a3f' },
+  { a: '#5a4028', b: '#80603a' },
+  { a: '#5a2a35', b: '#803a48' },
+  { a: '#1f4558', b: '#2e5d75' },
 ];
 
 const PALETTE_LIGHT = [
-  { a: '#c8c8d0', b: '#d8d8e0' },
-  { a: '#c0c4cc', b: '#d0d4dc' },
-  { a: '#ccc4d0', b: '#dccedc' },
-  { a: '#c4ccc4', b: '#d4dcd4' },
-  { a: '#ccc8c8', b: '#dcd8d8' },
-  { a: '#c4c4cc', b: '#d4d4dc' },
+  { a: '#b0c4e4', b: '#c4d4ec' },
+  { a: '#a4d4d4', b: '#c0e4e4' },
+  { a: '#c0d8c8', b: '#d4e8d8' },
+  { a: '#e4ccb4', b: '#f0dcc8' },
+  { a: '#e4c8d0', b: '#f0d8e0' },
+  { a: '#b8d0e4', b: '#cce0ec' },
 ];
 
 function polar(deg: number, r: number): [number, number] {
