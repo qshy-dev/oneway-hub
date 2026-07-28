@@ -440,7 +440,7 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
               {/* Lot list */}
               <div className="flex-1 min-h-0 rounded-xl border border-ink-800 bg-ink-900/20 overflow-hidden">
                 {filteredLots.length === 0 ? (
-                  <div className="flex items-center justify-center py-16 text-sm text-ink-600">
+                  <div className="flex h-full items-center justify-center text-sm text-ink-600">
                     {t('auction_no_lots')}
                   </div>
                 ) : (
