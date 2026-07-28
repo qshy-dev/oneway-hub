@@ -486,30 +486,29 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
                     {t('auction_no_lots')}
                   </div>
                 ) : (
-                  <div className="overflow-y-auto" style={{ maxHeight: 480 }}>
-                    <motion.div layout className="flex flex-col">
+                  <div className="h-full overflow-y-auto overflow-x-hidden">
+                    <motion.div layout="position" className="flex flex-col">
                       <AnimatePresence initial={false}>
                         {filteredLots.map((lot, idx) => (
                           <motion.div
                             key={lot.id}
-                            layout
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
                             transition={{
-                              layout: { type: 'spring', stiffness: 500, damping: 40, mass: 0.8 },
                               opacity: { duration: 0.15 },
+                              height: { duration: 0.2, ease: 'easeOut' },
                             }}
-                            className={`group flex items-center border-b border-ink-800/60 hover:bg-ink-800/30 ${idx % 2 === 0 ? 'bg-ink-900/40' : 'bg-ink-950/40'}`}
+                            className={`group flex w-full items-center border-b border-ink-800/60 hover:bg-ink-800/30 ${idx % 2 === 0 ? 'bg-ink-900/40' : 'bg-ink-950/40'}`}
                           >
                             {/* Row number */}
-                            <div className="w-8 py-3 pl-4 text-sm font-medium text-ink-500 tabular-nums">{idx + 1}</div>
+                            <div className="w-8 py-2.5 pl-4 text-sm font-medium text-ink-500 tabular-nums">{idx + 1}</div>
                             {/* Colored # badge */}
-                            <div className="w-12 py-3 px-2">
+                            <div className="w-12 py-2.5 px-2">
                               <span className="text-sm font-bold text-accent-400">#{idx + 1}</span>
                             </div>
                             {/* Name */}
-                            <div className="py-3 px-2 min-w-0 flex-1">
+                            <div className="py-2.5 px-2 min-w-0 flex-1">
                               {renamingId === lot.id ? (
                                 <input
                                   autoFocus
@@ -532,7 +531,7 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
                               )}
                             </div>
                             {/* Price */}
-                            <div className="w-28 py-3 px-3">
+                            <div className="w-28 py-2.5 px-3">
                               <div className="flex items-center justify-center gap-1">
                               {editingPriceId === lot.id ? (
                                 <input
@@ -559,7 +558,7 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
                               </div>
                             </div>
                             {/* Add sum */}
-                            <div className="w-20 py-3 px-1 text-center">
+                            <div className="w-20 py-2.5 px-1 text-center">
                               {addSumId === lot.id ? (
                                 <input
                                   autoFocus
@@ -585,7 +584,7 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
                               )}
                             </div>
                             {/* Delete */}
-                            <div className="w-10 py-3 px-1 pr-4 text-center">
+                            <div className="w-10 py-2.5 px-1 pr-4 text-center">
                               <button
                                 onClick={() => removeLot(lot.id)}
                                 className="text-ink-600 transition hover:text-red-400"
