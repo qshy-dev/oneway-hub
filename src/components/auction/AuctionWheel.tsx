@@ -24,21 +24,21 @@ const LABEL_RADIUS = 250;
 const DEFAULT_DURATION = 10;
 
 const PALETTE_DARK = [
-  { a: '#1e2235', b: '#262d44' },
-  { a: '#1a242e', b: '#223038' },
-  { a: '#221e30', b: '#2e2840' },
-  { a: '#1d2622', b: '#263330' },
-  { a: '#241e2a', b: '#322840' },
-  { a: '#1f2128', b: '#292b38' },
+  { a: '#22385f', b: '#2e4d80' },
+  { a: '#164a4a', b: '#246b6b' },
+  { a: '#1f4a2a', b: '#2e6a3f' },
+  { a: '#5a4028', b: '#80603a' },
+  { a: '#5a2a35', b: '#803a48' },
+  { a: '#1f4558', b: '#2e5d75' },
 ];
 
 const PALETTE_LIGHT = [
-  { a: '#c8c8d0', b: '#d8d8e0' },
-  { a: '#c0c4cc', b: '#d0d4dc' },
-  { a: '#ccc4d0', b: '#dccedc' },
-  { a: '#c4ccc4', b: '#d4dcd4' },
-  { a: '#ccc8c8', b: '#dcd8d8' },
-  { a: '#c4c4cc', b: '#d4d4dc' },
+  { a: '#b0c4e4', b: '#c4d4ec' },
+  { a: '#a4d4d4', b: '#c0e4e4' },
+  { a: '#c0d8c8', b: '#d4e8d8' },
+  { a: '#e4ccb4', b: '#f0dcc8' },
+  { a: '#e4c8d0', b: '#f0d8e0' },
+  { a: '#b8d0e4', b: '#cce0ec' },
 ];
 
 function polar(deg: number, r: number): [number, number] {
@@ -368,14 +368,46 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
         className="fixed z-30 hidden w-72 flex-col gap-2 md:flex"
         style={{ top: '5rem', left: sidebarCollapsed ? '84px' : '256px', transition: 'left 600ms cubic-bezier(0.22,1,0.36,1)' }}
       >
-        <h4 className="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">{t('auction_wheel_lots')}</h4>
-        <div className="flex max-h-[calc(100vh-280px)] flex-col gap-2 overflow-y-auto">
-          {[...segments].sort((a, b) => b.lot.price - a.lot.price).map((seg) => {
-            const i = segments.indexOf(seg);
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-semibold uppercase tracking-[0.15em] text-ink-500">{t('auction_wheel_lots')}</h4>
+          {wheelType === 'elimination' && eliminatedList.length > 0 && (
+            <button
+              onClick={() => setHideEliminated((v) => !v)}
+              title={hideEliminated ? t('show_eliminated') : t('hide_eliminated')}
+              className="flex h-6 w-6 items-center justify-center rounded-md border border-ink-800 bg-ink-900/50 text-ink-500 transition hover:border-ink-700 hover:text-ink-300"
+            >
+              {hideEliminated ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+            </button>
+          )}
+        </div>
+        <div className="flex max-h-[calc(100vh-160px)] flex-col gap-2 overflow-y-auto pr-1.5">
+          {[...validLots].sort((a, b) => b.price - a.price).map((lot) => {
+            const isEliminated = eliminatedIds.has(lot.id);
+            const seg = segments.find((s) => s.lot.id === lot.id);
+            const i = seg ? segments.indexOf(seg) : -1;
             const isHovered = hoveredIdx === i;
+            if (isEliminated && hideEliminated) return null;
+            if (isEliminated) {
+              return (
+                <div
+                  key={lot.id}
+                  className="flex items-center gap-3 rounded-lg border border-red-900/40 bg-red-950/20 px-3 py-2.5 opacity-60"
+                >
+                  <X className="h-3.5 w-3.5 shrink-0 text-red-400/60" />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink-500 line-through">
+                    {lot.name || `#${lot.order + 1}`}
+                  </span>
+                  <span className="w-16 shrink-0 text-right text-xs tabular-nums text-ink-600">{lot.price}{t('currency_symbol')}</span>
+                  <span className="w-14 shrink-0 text-right text-xs font-bold tabular-nums text-red-400/50">
+                    —
+                  </span>
+                </div>
+              );
+            }
+            const weight = seg ? seg.weight : 0;
             return (
               <button
-                key={seg.lot.id}
+                key={lot.id}
                 onMouseEnter={() => setHoveredIdx(i)}
                 onMouseLeave={() => setHoveredIdx(null)}
                 className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors duration-200 ${
@@ -385,43 +417,17 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
                 }`}
               >
                 <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink-200">
-                  {seg.lot.name || `#${seg.lot.order + 1}`}
+                  {lot.name || `#${lot.order + 1}`}
                 </span>
                 <span className="w-16 shrink-0 text-right text-xs font-medium tabular-nums text-ink-400">
-                  {seg.lot.price}{t('currency_symbol')}
+                  {lot.price}{t('currency_symbol')}
                 </span>
                 <span className="w-14 shrink-0 text-right text-xs font-bold tabular-nums text-accent-400">
-                  {(seg.weight * 100).toFixed(1)}%
+                  {(weight * 100).toFixed(2)}%
                 </span>
               </button>
             );
           })}
-          {wheelType === 'elimination' && eliminatedList.length > 0 && (
-            <>
-              <div className="mt-2 flex items-center justify-between border-t border-ink-800/60 pt-2">
-                <h4 className="text-xs font-semibold uppercase tracking-[0.15em] text-red-400/70">{t('eliminated')}</h4>
-                <button
-                  onClick={() => setHideEliminated((v) => !v)}
-                  title={hideEliminated ? t('show_eliminated') : t('hide_eliminated')}
-                  className="flex h-7 w-7 items-center justify-center rounded-md border border-ink-800 bg-ink-900/50 text-ink-500 transition hover:border-ink-700 hover:text-ink-300"
-                >
-                  {hideEliminated ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                </button>
-              </div>
-              {!hideEliminated && eliminatedList.map((lot) => (
-                <div
-                  key={lot.id}
-                  className="flex items-center gap-3 rounded-lg border border-red-900/40 bg-red-950/20 px-3 py-2 opacity-60"
-                >
-                  <X className="h-3.5 w-3.5 shrink-0 text-red-400/60" />
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink-500 line-through">
-                    {lot.name || `#${lot.order + 1}`}
-                  </span>
-                  <span className="w-16 shrink-0 text-right text-xs tabular-nums text-ink-600">{lot.price}{t('currency_symbol')}</span>
-                </div>
-              ))}
-            </>
-          )}
         </div>
       </div>
 
@@ -583,15 +589,20 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
               {/* Lot labels */}
               {segments.map((seg, i) => {
                 const [cx, cy] = polar(seg.mid, LABEL_RADIUS);
-                const fontSize = Math.max(10, Math.min(18, seg.weight * 48 + 8));
+                const fontSize = Math.max(11, Math.min(22, seg.weight * 56 + 10));
                 const isHovered = hoveredIdx === i;
                 const isDimmed = dimmed && !isHovered;
+                const segAngle = seg.end - seg.start;
+                const arcWidth = 2 * LABEL_RADIUS * Math.sin((Math.min(segAngle, 180) * Math.PI) / 360);
+                const labelText = seg.lot.name || `#${seg.lot.order + 1}`;
+                const textWidth = fontSize * 0.55 * labelText.length;
+                const showLabel = textWidth <= arcWidth * 0.92;
                 return (
                   <text
                     key={`l${i}`}
                     x={cx}
                     y={cy}
-                    fill={isLight ? '#1a1a2e' : '#e8e8f0'}
+                    fill={isLight ? '#1a1a2e' : '#f0f0f8'}
                     fontSize={fontSize}
                     fontWeight="700"
                     textAnchor="middle"
@@ -599,10 +610,10 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
                     style={{
                       pointerEvents: 'none',
                       transition: 'opacity 0.3s ease',
-                      opacity: isDimmed ? 0.3 : 1,
+                      opacity: !showLabel ? 0 : isDimmed ? 0.3 : 1,
                     }}
                   >
-                    {seg.lot.name || `#${seg.lot.order + 1}`}
+                    {labelText}
                   </text>
                 );
               })}
