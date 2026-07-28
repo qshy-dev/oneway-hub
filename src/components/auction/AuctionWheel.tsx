@@ -333,10 +333,10 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
     return (
       <div className="flex flex-1 min-h-0 items-center justify-center">
         <div
-          className="relative overflow-hidden rounded-full"
+          className="relative flex items-center justify-center overflow-hidden rounded-full"
           style={{ width: 'min(82vw, 820px, calc(100vh - 320px))', height: 'min(82vw, 820px, calc(100vh - 320px))' }}
         >
-          <svg viewBox={`${-HALF} ${-HALF} ${SIZE} ${SIZE}`} className="h-full w-full">
+          <svg viewBox={`${-HALF} ${-HALF} ${SIZE} ${SIZE}`} className="absolute inset-0 h-full w-full">
             <defs>
               <radialGradient id="aw-empty-shade" cx="50%" cy="50%" r="50%">
                 <stop offset="55%" stopColor="rgba(0,0,0,0)" />
@@ -348,6 +348,10 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
             <circle cx={0} cy={0} r={RADIUS - 4} fill="none" stroke={isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)'} strokeWidth={1} />
             <circle cx={0} cy={0} r={RADIUS} fill="url(#aw-empty-shade)" />
           </svg>
+          <div className="relative z-10 max-w-[60%] text-center">
+            <RotateCw className="mx-auto mb-4 h-10 w-10 text-ink-600" strokeWidth={1.5} />
+            <p className="text-sm font-medium text-ink-500">{t('auction_wheel_empty')}</p>
+          </div>
         </div>
       </div>
     );

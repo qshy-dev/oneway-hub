@@ -472,6 +472,8 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
                       <RulesEditor
                         value={rules}
                         onChange={setRules}
+                        onReset={() => setRules(DEFAULT_RULES_HTML)}
+                        resetLabel={t('auction_rules_reset')}
                         placeholder={t('auction_rules_placeholder')}
                       />
                     </div>
@@ -639,7 +641,7 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
             </div>
 
             {/* Quick time adjust buttons */}
-            <div className="mt-3 flex items-center justify-center gap-1.5">
+            <div className="mt-3 grid grid-cols-5 gap-1.5">
               <button
                 onClick={() => adjustTime(-30000)}
                 disabled={running}
@@ -682,7 +684,7 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
               </button>
             </div>
 
-            <div className="mt-3 flex gap-1.5">
+            <div className="mt-3 flex items-stretch justify-between gap-1.5">
               <button
                 onClick={() => setRunning((r) => !r)}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent-500 px-3 py-2 text-xs font-bold text-ink-950 transition hover:bg-accent-400"
@@ -692,7 +694,7 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
               </button>
               <button
                 onClick={() => { setCsLeft(DEFAULT_CS); setRunning(false); }}
-                className="flex items-center gap-1.5 rounded-lg border border-ink-700 bg-ink-800 px-3 py-2 text-xs font-semibold text-ink-300 transition hover:bg-ink-700"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-ink-700 bg-ink-800 px-3 py-2 text-xs font-semibold text-ink-300 transition hover:bg-ink-700"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
                 {t('auction_reset')}

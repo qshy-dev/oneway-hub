@@ -237,14 +237,14 @@ export function Statistics() {
             </button>
           </div>
         </div>
-        <div className="overflow-x-auto pb-2">
+        <div className="overflow-hidden pb-2">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={calKey}
               initial={{ opacity: 0, x: calDir * 40 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: calDir * -40 }}
-              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
               className="flex gap-4"
             >
               {quarterMonths.map((m) => (
