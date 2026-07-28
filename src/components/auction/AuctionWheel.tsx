@@ -3,6 +3,12 @@ import { RotateCw, Trophy, RefreshCw, Check, Clock, X, EyeOff, Eye } from 'lucid
 import { useI18n } from '@/i18n';
 import { useSettings } from '@/lib/settings';
 import type { Lot } from './types';
+import {
+  useAnimatedSegments,
+  arcPathForAngles,
+  shuffle,
+  type AnimSegment,
+} from '../rouletteShared';
 
 interface AuctionWheelProps {
   lots: Lot[];
@@ -46,16 +52,6 @@ function polar(deg: number, r: number): [number, number] {
   return [r * Math.cos(rad), r * Math.sin(rad)];
 }
 
-function arcPathWeighted(startDeg: number, endDeg: number): string {
-  if (endDeg - startDeg >= 360 - 0.01) {
-    return `M ${RADIUS} 0 A ${RADIUS} ${RADIUS} 0 1 1 ${-RADIUS} 0 A ${RADIUS} ${RADIUS} 0 1 1 ${RADIUS} 0 Z`;
-  }
-  const [x1, y1] = polar(startDeg, RADIUS);
-  const [x2, y2] = polar(endDeg, RADIUS);
-  const large = endDeg - startDeg > 180 ? 1 : 0;
-  return `M 0 0 L ${x1} ${y1} A ${RADIUS} ${RADIUS} 0 ${large} 1 ${x2} ${y2} Z`;
-}
-
 export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCollapsed, wheelDirtyRef }: AuctionWheelProps) {
   const { t } = useI18n();
   const { prefs } = useSettings();
@@ -65,6 +61,7 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
   const validLots = useMemo(() => lots.filter((l) => l.price > 0), [lots]);
 
   const [wheelType, setWheelType] = useState<WheelType>('normal');
+  const [shuffledLots, setShuffledLots] = useState<Lot[]>(() => shuffle(validLots));
   const [eliminatedIds, setEliminatedIds] = useState<Set<string>>(new Set());
   const [eliminatedModal, setEliminatedModal] = useState<Lot | null>(null);
   const [winner, setWinner] = useState<Lot | null>(null);
@@ -75,8 +72,8 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
   const [hideEliminated, setHideEliminated] = useState(false);
 
   const activeLots = useMemo(
-    () => validLots.filter((l) => !eliminatedIds.has(l.id)),
-    [validLots, eliminatedIds],
+    () => shuffledLots.filter((l) => !eliminatedIds.has(l.id)),
+    [shuffledLots, eliminatedIds],
   );
 
   const eliminatedList = useMemo(
@@ -115,6 +112,17 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
     });
   }, [activeLots, totalSum, wheelType]);
 
+  const targetSegments: AnimSegment[] = useMemo(
+    () => segments.map((s) => ({ key: s.lot.id, start: s.start, end: s.end })),
+    [segments],
+  );
+  const displayed = useAnimatedSegments(targetSegments, 700);
+  const activeCount = displayed.filter((d) => !d.exiting).length;
+  const segByLotId = useMemo(
+    () => new Map(segments.map((s) => [s.lot.id, s])),
+    [segments],
+  );
+
   const [phase, setPhase] = useState<Phase>('idle');
   const [rotation, setRotation] = useState(0);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
@@ -129,6 +137,7 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
 
   // Reset elimination state when lot set changes
   useEffect(() => {
+    setShuffledLots(shuffle(validLots));
     setEliminatedIds(new Set());
     setEliminationComplete(false);
     setEliminatedModal(null);
@@ -271,6 +280,7 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
   };
 
   const handleReroll = () => {
+    setShuffledLots(shuffle(validLots));
     setEliminatedIds(new Set());
     setEliminationComplete(false);
     setEliminatedModal(null);
@@ -295,6 +305,7 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
 
   const applyWheelType = (m: WheelType) => {
     setWheelType(m);
+    setShuffledLots(shuffle(validLots));
     setEliminatedIds(new Set());
     setEliminationComplete(false);
     setEliminatedModal(null);
@@ -537,10 +548,13 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
           >
             <svg viewBox={`${-HALF} ${-HALF} ${SIZE} ${SIZE}`} className="h-full w-full">
               <defs>
-                {segments.map((seg, i) => {
-                  const c = PALETTE[i % PALETTE.length];
+                {displayed.map((d) => {
+                  const seg = segByLotId.get(d.key);
+                  if (!seg) return null;
+                  const origIdx = validLots.indexOf(seg.lot);
+                  const c = PALETTE[origIdx % PALETTE.length];
                   return (
-                    <radialGradient key={i} id={`aw-s${i}`} cx="35%" cy="35%" r="80%">
+                    <radialGradient key={d.key} id={`aw-s${d.key}`} cx="35%" cy="35%" r="80%">
                       <stop offset="0%" stopColor={c.b} />
                       <stop offset="100%" stopColor={c.a} />
                     </radialGradient>
@@ -552,30 +566,37 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
                 </radialGradient>
               </defs>
 
+              {/* Background disc — hides gaps during sector redistribution */}
+              <circle cx={0} cy={0} r={RADIUS} fill={isLight ? '#d8d8e0' : '#1e2235'} />
+
               {/* Weighted sectors */}
-              {segments.map((seg, i) => {
-                const isHovered = hoveredIdx === i;
+              {displayed.map((d) => {
+                const seg = segByLotId.get(d.key);
+                if (!seg) return null;
+                const origIdx = validLots.indexOf(seg.lot);
+                const isHovered = hoveredIdx === origIdx;
                 const isDimmed = dimmed && !isHovered;
                 return (
                   <path
-                    key={i}
-                    d={arcPathWeighted(seg.start, seg.end)}
-                    fill={`url(#aw-s${i})`}
+                    key={d.key}
+                    d={arcPathForAngles(d.start, d.end, RADIUS)}
+                    fill={`url(#aw-s${d.key})`}
                     stroke={isLight ? 'rgba(0,0,0,0.08)' : 'rgba(var(--accent-rgb),0.10)'}
                     style={{
-                      transition: 'filter 0.3s ease, opacity 0.3s ease',
+                      transition: 'filter 0.3s ease',
                       filter: isDimmed ? 'grayscale(1) brightness(0.5)' : isHovered ? 'brightness(1.15)' : 'none',
-                      opacity: isDimmed ? 0.4 : 1,
+                      opacity: d.exiting ? d.opacity : isDimmed ? 0.4 : 1,
                     }}
+                    className={d.exiting ? 'elim-flash' : ''}
                   />
                 );
               })}
 
               {/* Divider lines */}
-              {segments.length > 1 && segments.map((seg, i) => {
-                const [lx, ly] = polar(seg.start, RADIUS);
+              {activeCount > 1 && displayed.filter((d) => !d.exiting).map((d) => {
+                const [lx, ly] = polar(d.start, RADIUS);
                 return (
-                  <line key={`d${i}`} x1={0} y1={0} x2={lx} y2={ly} stroke={isLight ? 'rgba(0,0,0,0.06)' : 'rgba(var(--accent-rgb),0.10)'} strokeWidth={1} />
+                  <line key={`d${d.key}`} x1={0} y1={0} x2={lx} y2={ly} stroke={isLight ? 'rgba(0,0,0,0.06)' : 'rgba(var(--accent-rgb),0.10)'} strokeWidth={1} />
                 );
               })}
 
@@ -587,19 +608,23 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
               <circle cx={0} cy={0} r={RADIUS} fill="url(#aw-center-shade)" />
 
               {/* Lot labels */}
-              {segments.map((seg, i) => {
-                const [cx, cy] = polar(seg.mid, LABEL_RADIUS);
+              {displayed.map((d) => {
+                const seg = segByLotId.get(d.key);
+                if (!seg) return null;
+                const mid = (d.start + d.end) / 2;
+                const [cx, cy] = polar(mid, LABEL_RADIUS);
                 const fontSize = Math.max(11, Math.min(22, seg.weight * 56 + 10));
-                const isHovered = hoveredIdx === i;
+                const origIdx = validLots.indexOf(seg.lot);
+                const isHovered = hoveredIdx === origIdx;
                 const isDimmed = dimmed && !isHovered;
-                const segAngle = seg.end - seg.start;
+                const segAngle = d.end - d.start;
                 const arcWidth = 2 * LABEL_RADIUS * Math.sin((Math.min(segAngle, 180) * Math.PI) / 360);
                 const labelText = seg.lot.name || `#${seg.lot.order + 1}`;
                 const textWidth = fontSize * 0.55 * labelText.length;
                 const showLabel = textWidth <= arcWidth * 0.92;
                 return (
                   <text
-                    key={`l${i}`}
+                    key={`l${d.key}`}
                     x={cx}
                     y={cy}
                     fill={isLight ? '#1a1a2e' : '#f0f0f8'}
@@ -609,8 +634,7 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
                     dominantBaseline="middle"
                     style={{
                       pointerEvents: 'none',
-                      transition: 'opacity 0.3s ease',
-                      opacity: !showLabel ? 0 : isDimmed ? 0.3 : 1,
+                      opacity: d.exiting ? d.opacity : !showLabel ? 0 : isDimmed ? 0.3 : 1,
                     }}
                   >
                     {labelText}

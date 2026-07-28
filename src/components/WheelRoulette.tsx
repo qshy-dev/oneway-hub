@@ -9,7 +9,11 @@ import {
   decodeSafe,
   DetailModal,
   RandomReveal,
+  shuffle,
   type DetailItem,
+  useAnimatedSegments,
+  arcPathForAngles,
+  type AnimSegment,
 } from './rouletteShared';
 import { randomCrosshairCode } from '@/lib/randomCrosshair';
 
@@ -61,15 +65,6 @@ function polar(deg: number, r: number): [number, number] {
   return [r * Math.cos(rad), r * Math.sin(rad)];
 }
 
-function arcPath(i: number, seg: number): string {
-  const a1 = i * seg;
-  const a2 = (i + 1) * seg;
-  const [x1, y1] = polar(a1, RADIUS);
-  const [x2, y2] = polar(a2, RADIUS);
-  const large = seg > 180 ? 1 : 0;
-  return `M 0 0 L ${x1} ${y1} A ${RADIUS} ${RADIUS} 0 ${large} 1 ${x2} ${y2} Z`;
-}
-
 function imgSizeFor(segDeg: number): number {
   if (segDeg >= 360) return 220;
   const rad = (segDeg * Math.PI) / 180;
@@ -94,7 +89,7 @@ export function WheelRoulette({ items, onWin, history, includeRandom, sidebarCol
   }, [items, includeRandom]);
 
   const [wheelType, setWheelType] = useState<WheelType>('normal');
-  const [activeSectors, setActiveSectors] = useState<Sector[]>(fullSectors);
+  const [activeSectors, setActiveSectors] = useState<Sector[]>(() => shuffle(fullSectors));
   const [eliminated, setEliminated] = useState<Sector[]>([]);
   const [winner, setWinner] = useState<Sector | null>(null);
   const [pendingWinner, setPendingWinner] = useState<Sector | null>(null);
@@ -104,7 +99,7 @@ export function WheelRoulette({ items, onWin, history, includeRandom, sidebarCol
   const [resetConfirm, setResetConfirm] = useState(false);
 
   useEffect(() => {
-    setActiveSectors(fullSectors);
+    setActiveSectors(shuffle(fullSectors));
     setEliminated([]);
     setWinner(null);
     setEliminatedModal(null);
@@ -118,7 +113,24 @@ export function WheelRoulette({ items, onWin, history, includeRandom, sidebarCol
   const sectors = activeSectors;
   const N = sectors.length;
   const seg = 360 / Math.max(N, 1);
-  const imgSize = imgSizeFor(seg);
+
+  const sectorMap = useMemo(() => {
+    const m = new Map<string, Sector>();
+    for (const s of fullSectors) m.set(String(s.index), s);
+    return m;
+  }, [fullSectors]);
+
+  const targetSegments: AnimSegment[] = useMemo(() => {
+    const s = 360 / Math.max(N, 1);
+    return sectors.map((sec, i) => ({
+      key: String(sec.index),
+      start: i * s,
+      end: (i + 1) * s,
+    }));
+  }, [sectors, N]);
+
+  const displayed = useAnimatedSegments(targetSegments, 700);
+  const activeCount = displayed.filter((d) => !d.exiting).length;
 
   const [phase, setPhase] = useState<Phase>('idle');
   const [rotation, setRotation] = useState(0);
@@ -267,7 +279,7 @@ export function WheelRoulette({ items, onWin, history, includeRandom, sidebarCol
   };
 
   const handleReroll = () => {
-    setActiveSectors(fullSectors);
+    setActiveSectors(shuffle(fullSectors));
     setEliminated([]);
     setWinner(null);
     setPendingWinner(null);
@@ -292,7 +304,7 @@ export function WheelRoulette({ items, onWin, history, includeRandom, sidebarCol
 
   const applyWheelType = (m: WheelType) => {
     setWheelType(m);
-    setActiveSectors(fullSectors);
+    setActiveSectors(shuffle(fullSectors));
     setEliminated([]);
     setWinner(null);
     setPendingWinner(null);
@@ -459,10 +471,12 @@ export function WheelRoulette({ items, onWin, history, includeRandom, sidebarCol
           >
             <svg viewBox={`${-HALF} ${-HALF} ${SIZE} ${SIZE}`} className="h-full w-full">
               <defs>
-                {sectors.map((_, i) => {
-                  const c = PALETTE[i % PALETTE.length];
+                {displayed.map((d) => {
+                  const sec = sectorMap.get(d.key);
+                  if (!sec) return null;
+                  const c = PALETTE[sec.index % PALETTE.length];
                   return (
-                    <radialGradient key={i} id={`s${i}`} cx="35%" cy="35%" r="80%">
+                    <radialGradient key={d.key} id={`s${d.key}`} cx="35%" cy="35%" r="80%">
                       <stop offset="0%" stopColor={c.b} />
                       <stop offset="100%" stopColor={c.a} />
                     </radialGradient>
@@ -474,21 +488,30 @@ export function WheelRoulette({ items, onWin, history, includeRandom, sidebarCol
                 </radialGradient>
               </defs>
 
+              {/* Background disc — hides gaps during sector redistribution */}
+              <circle cx={0} cy={0} r={RADIUS} fill={isLight ? '#d8d8e0' : '#1e2235'} />
+
               {/* Sectors — fill the entire circle */}
-              {sectors.map((_, i) => (
-                <path
-                  key={i}
-                  d={arcPath(i, seg)}
-                  fill={`url(#s${i})`}
-                  stroke={isLight ? 'rgba(0,0,0,0.08)' : 'rgba(var(--accent-rgb),0.10)'}
-                />
-              ))}
+              {displayed.map((d) => {
+                const sec = sectorMap.get(d.key);
+                if (!sec) return null;
+                return (
+                  <path
+                    key={d.key}
+                    d={arcPathForAngles(d.start, d.end, RADIUS)}
+                    fill={`url(#s${d.key})`}
+                    stroke={isLight ? 'rgba(0,0,0,0.08)' : 'rgba(var(--accent-rgb),0.10)'}
+                    style={{ opacity: d.opacity }}
+                    className={d.exiting ? 'elim-flash' : ''}
+                  />
+                );
+              })}
 
               {/* Divider lines */}
-              {N > 1 && sectors.map((_, i) => {
-                const [lx, ly] = polar(i * seg, RADIUS);
+              {activeCount > 1 && displayed.filter((d) => !d.exiting).map((d) => {
+                const [lx, ly] = polar(d.start, RADIUS);
                 return (
-                  <line key={`d${i}`} x1={0} y1={0} x2={lx} y2={ly} stroke={isLight ? 'rgba(0,0,0,0.06)' : 'rgba(var(--accent-rgb),0.10)'} strokeWidth={1} />
+                  <line key={`d${d.key}`} x1={0} y1={0} x2={lx} y2={ly} stroke={isLight ? 'rgba(0,0,0,0.06)' : 'rgba(var(--accent-rgb),0.10)'} strokeWidth={1} />
                 );
               })}
 
@@ -500,18 +523,22 @@ export function WheelRoulette({ items, onWin, history, includeRandom, sidebarCol
               <circle cx={0} cy={0} r={RADIUS} fill="url(#center-shade)" />
 
               {/* Crosshair previews */}
-              {sectors.map((s, i) => {
-                const am = i * seg + seg / 2;
-                const [cx, cy] = N === 1 ? [0, 0] : polar(am, IMG_RADIUS);
-                const half = imgSize / 2;
+              {displayed.map((d) => {
+                const sec = sectorMap.get(d.key);
+                if (!sec) return null;
+                const segDeg = d.end - d.start;
+                const mid = (d.start + d.end) / 2;
+                const [cx, cy] = activeCount === 1 ? [0, 0] : polar(mid, IMG_RADIUS);
+                const sz = imgSizeFor(segDeg);
+                const half = sz / 2;
                 return (
-                  <foreignObject key={`i${i}`} x={cx - half} y={cy - half} width={imgSize} height={imgSize} style={{ overflow: 'visible' }}>
-                    {s.isRandom ? (
+                  <foreignObject key={`i${d.key}`} x={cx - half} y={cy - half} width={sz} height={sz} style={{ overflow: 'visible', opacity: d.opacity }}>
+                    {sec.isRandom ? (
                       <div className="flex h-full w-full items-center justify-center">
-                        <HelpCircle style={{ width: imgSize * 0.45, height: imgSize * 0.45 }} className="text-accent-400/70" strokeWidth={1.5} />
+                        <HelpCircle style={{ width: sz * 0.45, height: sz * 0.45 }} className="text-accent-400/70" strokeWidth={1.5} />
                       </div>
                     ) : (
-                      <CrosshairCodePreview code={s.code} className="h-full w-full" background="transparent" />
+                      <CrosshairCodePreview code={sec.code} className="h-full w-full" background="transparent" />
                     )}
                   </foreignObject>
                 );
