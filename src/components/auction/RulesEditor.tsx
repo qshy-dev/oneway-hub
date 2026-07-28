@@ -3,7 +3,7 @@ import {
   Bold, Italic, Underline, Strikethrough,
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   List, ListOrdered, Undo2, Redo2, RemoveFormatting,
-  Palette, Highlighter, ChevronDown,
+  Palette, Highlighter, ChevronDown, RotateCcw,
 } from 'lucide-react';
 
 const FONT_SIZES = [
@@ -34,7 +34,9 @@ const HIGHLIGHT_COLORS = [
 type Props = {
   value: string;
   onChange: (html: string) => void;
+  onReset: () => void;
   placeholder: string;
+  resetLabel: string;
 };
 
 function TBtn({ icon: Icon, onClick, active, title, disabled }: {
@@ -101,7 +103,7 @@ function applyFontSize(editor: HTMLDivElement, px: string) {
   });
 }
 
-export function RulesEditor({ value, onChange, placeholder }: Props) {
+export function RulesEditor({ value, onChange, onReset, placeholder, resetLabel }: Props) {
   const editorRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef<string[]>([]);
@@ -139,6 +141,7 @@ export function RulesEditor({ value, onChange, placeholder }: Props) {
 
   const handleInput = () => {
     const html = editorRef.current?.innerHTML ?? '';
+    lastSyncedRef.current = html;
     onChange(html);
     clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => pushHistory(html), 500);
@@ -280,11 +283,12 @@ export function RulesEditor({ value, onChange, placeholder }: Props) {
   };
 
   return (
-    <div ref={containerRef} className="relative flex h-full flex-col">
+    <div ref={containerRef} className="relative flex min-h-0 flex-1 flex-col">
       {/* Main toolbar */}
       <div className="mb-2 flex flex-wrap items-center gap-0.5 border-b border-ink-800 pb-2">
         <TBtn icon={Undo2} onClick={undo} disabled={!canUndo} title="Undo" />
         <TBtn icon={Redo2} onClick={redo} disabled={!canRedo} title="Redo" />
+        <TBtn icon={RotateCcw} onClick={onReset} title={resetLabel} />
         <div className="mx-1 h-4 w-px bg-ink-800" />
         <TBtn icon={AlignLeft} onClick={() => exec('justifyLeft')} title="Align left" />
         <TBtn icon={AlignCenter} onClick={() => exec('justifyCenter')} title="Align center" />
