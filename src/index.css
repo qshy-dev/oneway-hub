@@ -201,6 +201,13 @@ code,
   will-change: transform;
 }
 
+/* Rich text editor placeholder */
+.rules-editor:empty::before {
+  content: attr(data-placeholder);
+  color: #4a4a52;
+  pointer-events: none;
+}
+
 /* Logo hover wiggle */
 @keyframes logo-wiggle {
   0% { transform: rotate(0deg) scale(1); }
