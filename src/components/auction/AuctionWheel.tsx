@@ -372,6 +372,11 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
   const canSpin = phase !== 'spinning' && !(wheelType === 'elimination' && (!!winner || !!pendingWinner) && !eliminationComplete);
   const idle = phase === 'idle';
 
+  const invWeightSum = useMemo(() => {
+    if (wheelType !== 'elimination') return 0;
+    return segments.reduce((sum, s) => sum + (s.weight > 0 ? 1 / s.weight : 0), 0);
+  }, [segments, wheelType]);
+
   return (
     <div className="flex flex-1 min-h-0 gap-6">
       {/* Lot list — fixed on the left, tracks sidebar width */}
@@ -416,6 +421,9 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
               );
             }
             const weight = seg ? seg.weight : 0;
+            const winPct = wheelType === 'elimination' && weight > 0 && invWeightSum > 0
+              ? (1 / weight / invWeightSum) * 100
+              : weight * 100;
             return (
               <button
                 key={lot.id}
@@ -434,7 +442,7 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
                   {lot.price}{t('currency_symbol')}
                 </span>
                 <span className="w-14 shrink-0 text-right text-xs font-bold tabular-nums text-accent-400">
-                  {(weight * 100).toFixed(2)}%
+                  {winPct.toFixed(2)}%
                 </span>
               </button>
             );
