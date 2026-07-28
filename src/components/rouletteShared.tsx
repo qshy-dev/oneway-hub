@@ -151,6 +151,168 @@ export function RandomReveal({
   );
 }
 
+// --- Animated segment redistribution (elimination mode) ---
+
+export function shuffle<T>(arr: readonly T[]): T[] {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+export interface AnimSegment {
+  key: string;
+  start: number;
+  end: number;
+}
+
+export interface DisplayedSegment extends AnimSegment {
+  opacity: number;
+  exiting: boolean;
+}
+
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+function polarDeg(deg: number, r: number): [number, number] {
+  const rad = ((deg - 90) * Math.PI) / 180;
+  return [r * Math.cos(rad), r * Math.sin(rad)];
+}
+
+export function arcPathForAngles(startDeg: number, endDeg: number, radius: number): string {
+  if (endDeg - startDeg >= 360 - 0.01) {
+    return `M ${radius} 0 A ${radius} ${radius} 0 1 1 ${-radius} 0 A ${radius} ${radius} 0 1 1 ${radius} 0 Z`;
+  }
+  const [x1, y1] = polarDeg(startDeg, radius);
+  const [x2, y2] = polarDeg(endDeg, radius);
+  const large = endDeg - startDeg > 180 ? 1 : 0;
+  return `M 0 0 L ${x1} ${y1} A ${radius} ${radius} 0 ${large} 1 ${x2} ${y2} Z`;
+}
+
+export function useAnimatedSegments(
+  targets: AnimSegment[],
+  duration = 700,
+): DisplayedSegment[] {
+  const [displayed, setDisplayed] = useState<DisplayedSegment[]>(
+    () => targets.map((t) => ({ ...t, opacity: 1, exiting: false })),
+  );
+
+  const currentRef = useRef<Map<string, { start: number; end: number; opacity: number }>>(
+    new Map(targets.map((t) => [t.key, { start: t.start, end: t.end, opacity: 1 }])),
+  );
+  const rafRef = useRef<number | null>(null);
+  const targetsRef = useRef(targets);
+  targetsRef.current = targets;
+
+  const targetKey = targets
+    .map((t) => `${t.key}:${t.start.toFixed(2)}:${t.end.toFixed(2)}`)
+    .join('|');
+
+  useEffect(() => {
+    const current = currentRef.current;
+    const tgts = targetsRef.current;
+    const targetMap = new Map(tgts.map((t) => [t.key, t]));
+
+    type AnimEntry = {
+      key: string;
+      fromStart: number; toStart: number;
+      fromEnd: number; toEnd: number;
+      fromOpacity: number; toOpacity: number;
+      exiting: boolean;
+    };
+
+    const entries: AnimEntry[] = [];
+
+    for (const t of tgts) {
+      const c = current.get(t.key);
+      entries.push({
+        key: t.key,
+        fromStart: c ? c.start : t.start,
+        toStart: t.start,
+        fromEnd: c ? c.end : t.end,
+        toEnd: t.end,
+        fromOpacity: c !== undefined ? c.opacity : 0,
+        toOpacity: 1,
+        exiting: false,
+      });
+    }
+
+    for (const [key, c] of current) {
+      if (!targetMap.has(key)) {
+        const mid = (c.start + c.end) / 2;
+        entries.push({
+          key,
+          fromStart: c.start, toStart: mid,
+          fromEnd: c.end, toEnd: mid,
+          fromOpacity: c.opacity, toOpacity: 0,
+          exiting: true,
+        });
+      }
+    }
+
+    const noChange = entries.every(
+      (e) =>
+        Math.abs(e.fromStart - e.toStart) < 0.01 &&
+        Math.abs(e.fromEnd - e.toEnd) < 0.01 &&
+        Math.abs(e.fromOpacity - e.toOpacity) < 0.01,
+    );
+    if (noChange) {
+      const result = tgts.map((t) => ({ ...t, opacity: 1, exiting: false }));
+      currentRef.current = new Map(
+        result.map((s) => [s.key, { start: s.start, end: s.end, opacity: 1 }]),
+      );
+      setDisplayed(result);
+      return;
+    }
+
+    const startTime = performance.now();
+
+    const tick = (now: number) => {
+      const elapsed = now - startTime;
+      const t = Math.min(1, elapsed / duration);
+      const eased = easeOutCubic(t);
+
+      const next: DisplayedSegment[] = entries.map((e) => ({
+        key: e.key,
+        start: e.fromStart + (e.toStart - e.fromStart) * eased,
+        end: e.fromEnd + (e.toEnd - e.fromEnd) * eased,
+        opacity: e.fromOpacity + (e.toOpacity - e.fromOpacity) * eased,
+        exiting: e.exiting,
+      }));
+
+      currentRef.current = new Map(
+        next.map((s) => [s.key, { start: s.start, end: s.end, opacity: s.opacity }]),
+      );
+      setDisplayed(next);
+
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        const result = tgts.map((t) => ({ ...t, opacity: 1, exiting: false }));
+        currentRef.current = new Map(
+          result.map((s) => [s.key, { start: s.start, end: s.end, opacity: 1 }]),
+        );
+        setDisplayed(result);
+        rafRef.current = null;
+      }
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [targetKey, duration]);
+
+  return displayed;
+}
+
 // Single unified result popup used by both roulettes and the history list.
 export function DetailModal({
   item,

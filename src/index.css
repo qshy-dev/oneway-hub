@@ -264,6 +264,26 @@ code,
   animation: blink 0.8s steps(1) infinite;
 }
 
+/* Loser sector flash — played on the eliminated sector before it shrinks away */
+@keyframes elim-flash {
+  0%   { filter: brightness(1); }
+  25%  { filter: brightness(2.2) saturate(1.4); }
+  60%  { filter: brightness(0.7) saturate(0.4); }
+  100% { filter: brightness(0.4) saturate(0.2); }
+}
+.elim-flash {
+  animation: elim-flash 0.7s ease-out forwards;
+}
+
+/* Loser label strike-through */
+@keyframes elim-label-fade {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+.elim-label-fade {
+  animation: elim-label-fade 0.5s ease-out forwards;
+}
+
 /* Logo hover wiggle */
 @keyframes logo-wiggle {
   0% { transform: rotate(0deg) scale(1); }
