@@ -250,17 +250,24 @@ export function Profile({ userId }: { userId?: string | null }) {
                             <UserCircle className="h-5 w-5 text-ink-600" />
                           </div>
                         )}
+                        <div className="min-w-0 flex-1">
+                          <a
+                            href={`https://twitch.tv/${f.login}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="truncate text-sm font-semibold text-ink-200 transition hover:text-accent-400"
+                          >
+                            {f.displayName}
+                          </a>
+                          <p className="truncate text-xs text-ink-600">@{f.login}</p>
+                        </div>
                         <a
                           href={`https://twitch.tv/${f.login}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="flex min-w-0 flex-1 items-center gap-3 rounded-lg transition hover:bg-ink-800/30"
+                          className="shrink-0 transition hover:text-accent-400"
                         >
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-ink-200 hover:text-accent-400">{f.displayName}</p>
-                            <p className="truncate text-xs text-ink-600">@{f.login}</p>
-                          </div>
-                          <ExternalLink className="h-4 w-4 shrink-0 text-ink-600 transition hover:text-accent-400" />
+                          <ExternalLink className="h-4 w-4 text-ink-600" />
                         </a>
                       </li>
                     ))}
