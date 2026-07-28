@@ -224,7 +224,7 @@ export function HorizontalRoulette({ items, onWin, history, includeRandom }: Rou
           className={`rounded-xl px-12 py-3.5 text-base font-semibold tracking-wide transition-all ${
             phase === 'spinning'
               ? 'cursor-default bg-ink-800 text-ink-500'
-              : 'bg-ink-100 text-ink-950 hover:bg-accent-400 hover:scale-[1.02] active:scale-95'
+              : 'bg-accent-500 text-white hover:bg-accent-400 hover:scale-[1.02] active:scale-95'
           }`}
         >
           {phase === 'spinning' ? t('spinning') : t('spin')}

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Play, RotateCcw,
   Plus, Search, Gavel, Disc, Archive, Trash2, Save, X, Clock, History as HistoryIcon, ListOrdered,
-  ScrollText, Minus, Pin, PinOff,
+  ScrollText, Minus, Pencil, Check,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useI18n } from '@/i18n';
@@ -162,9 +162,12 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
   const [archive, setArchive] = useState<ArchivedAuction[]>(loadArchive);
   const [archiveSearch, setArchiveSearch] = useState('');
   const [archiveSort, setArchiveSort] = useState<'date' | 'name'>('date');
+  const [renamingArchiveId, setRenamingArchiveId] = useState<string | null>(null);
+  const [renameArchiveValue, setRenameArchiveValue] = useState('');
   const [rulesOpen, setRulesOpen] = useState(false);
   const [rules, setRules] = useState<string>(loadRules);
   const tickRef = useRef<number | null>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   // Timer display mode: HH:MM:SS when >= 60 min, else MM:SS:CS
   // Switch to HH:MM:SS once time exceeds 59m 59s 99cs
@@ -213,35 +216,35 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
     setHistory((h) => [{ id: uid(), text, ts: Date.now() }, ...h].slice(0, 200));
   }, []);
 
-  const addLot = useCallback(() => {
+  const addLot = () => {
     const trimmed = newLotName.trim();
-    if (!trimmed) return;
-    const price = parseInt(newLotPrice, 10) || 0;
+    const price = newLotPrice.trim() === '' ? 0 : (parseInt(newLotPrice, 10) || 0);
     const lot: Lot = { id: uid(), name: trimmed, price, order: lots.length };
     setLots((l) => [...l, lot]);
-    addHistory(t('auction_log_lot_added').replace('{0}', trimmed));
+    addHistory(trimmed ? t('auction_log_lot_added', trimmed) : t('auction_log_lot_added', t('auction_lot_name_placeholder')));
     setNewLotName('');
     setNewLotPrice('');
-  }, [newLotName, newLotPrice, lots.length, addHistory, t]);
+    nameInputRef.current?.focus();
+  };
 
   const renameLot = useCallback((id: string, newName: string) => {
     const trimmed = newName.trim();
-    if (!trimmed) return;
     setLots((l) => {
       const lot = l.find((x) => x.id === id);
       if (!lot) return l;
-      addHistory(t('auction_log_lot_renamed').replace('{0}', lot.name).replace('{1}', trimmed));
+      addHistory(t('auction_log_lot_renamed').replace('{0}', lot.name || t('auction_lot_name_placeholder')).replace('{1}', trimmed || t('auction_lot_name_placeholder')));
       return l.map((x) => (x.id === id ? { ...x, name: trimmed } : x));
     });
     setRenamingId(null);
   }, [addHistory, t]);
 
   const changePrice = useCallback((id: string, newPrice: string) => {
-    const price = parseInt(newPrice, 10) || 0;
+    const trimmed = newPrice.trim();
+    const price = trimmed === '' ? 0 : (parseInt(trimmed, 10) || 0);
     setLots((l) => {
       const lot = l.find((x) => x.id === id);
       if (!lot) return l;
-      addHistory(t('auction_log_lot_price').replace('{0}', lot.name).replace('{1}', String(lot.price)).replace('{2}', String(price)));
+      addHistory(t('auction_log_lot_price').replace('{0}', lot.name || t('auction_lot_name_placeholder')).replace('{1}', String(lot.price)).replace('{2}', String(price)));
       return l.map((x) => (x.id === id ? { ...x, price } : x));
     });
     setEditingPriceId(null);
@@ -250,14 +253,10 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
   const removeLot = useCallback((id: string) => {
     setLots((l) => {
       const lot = l.find((x) => x.id === id);
-      if (lot) addHistory(t('auction_log_lot_removed').replace('{0}', lot.name));
+      if (lot) addHistory(t('auction_log_lot_removed').replace('{0}', lot.name || t('auction_lot_name_placeholder')));
       return l.filter((x) => x.id !== id);
     });
   }, [addHistory, t]);
-
-  const togglePin = useCallback((id: string) => {
-    setLots((l) => l.map((x) => x.id === id ? { ...x, pinned: !x.pinned } : x));
-  }, []);
 
   const addSumToLot = useCallback((id: string, amountStr: string) => {
     const amount = parseInt(amountStr, 10);
@@ -269,7 +268,7 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
       const lot = l.find((x) => x.id === id);
       if (!lot) return l;
       const newPrice = lot.price + amount;
-      addHistory(t('auction_log_lot_price').replace('{0}', lot.name).replace('{1}', String(lot.price)).replace('{2}', String(newPrice)));
+      addHistory(t('auction_log_lot_price').replace('{0}', lot.name || t('auction_lot_name_placeholder')).replace('{1}', String(lot.price)).replace('{2}', String(newPrice)));
       return l.map((x) => x.id === id ? { ...x, price: newPrice } : x);
     });
     setAddSumId(null);
@@ -277,10 +276,7 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
   }, [addHistory, t]);
 
   const sortedLots = useMemo(() => {
-    const pinned = lots.filter((l) => l.pinned);
-    const rest = lots.filter((l) => !l.pinned);
-    const byPrice = (a: Lot, b: Lot) => b.price - a.price;
-    return [...pinned.sort(byPrice), ...rest.sort(byPrice)];
+    return [...lots].sort((a, b) => b.price - a.price);
   }, [lots]);
 
   const filteredLots = useMemo(() => {
@@ -289,8 +285,7 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
     return sortedLots.filter((l) => l.name.toLowerCase().includes(q));
   }, [sortedLots, search]);
 
-  const filteredArchive = useMemo(() => {
-    const q = archiveSearch.trim().toLowerCase();
+  const filteredArchive = useMemo(() => {    const q = archiveSearch.trim().toLowerCase();
     let res = archive;
     if (q) res = res.filter((a) => a.name.toLowerCase().includes(q));
     res = [...res].sort((a, b) =>
@@ -338,7 +333,7 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
   };
 
   return (
-    <div className="flex h-full min-h-0 gap-4 p-4">
+    <div className="flex flex-1 min-h-0 gap-4 p-4">
       {/* Main column */}
       <div className="flex flex-1 flex-col min-h-0 gap-4">
         {tab === 'wheel' ? (
@@ -353,19 +348,20 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
             {/* Row 1: lot name, price, add lot, search */}
             <div className="flex items-center gap-2">
               <input
+                ref={nameInputRef}
                 value={newLotName}
                 onChange={(e) => setNewLotName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addLot()}
+                onKeyDown={(e) => { if (e.key === 'Enter') addLot(); }}
                 placeholder={t('auction_lot_name')}
                 className="min-w-[120px] flex-1 rounded-lg border border-ink-800 bg-ink-950 px-3 py-2 text-sm text-ink-200 placeholder:text-ink-600 focus:border-accent-500/50 focus:outline-none"
               />
               <input
                 value={newLotPrice}
-                onChange={(e) => setNewLotPrice(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addLot()}
-                placeholder={t('auction_lot_price')}
-                type="number"
-                className="w-24 shrink-0 rounded-lg border border-ink-800 bg-ink-950 px-3 py-2 text-sm text-ink-200 placeholder:text-ink-600 focus:border-accent-500/50 focus:outline-none"
+                onChange={(e) => setNewLotPrice(e.target.value.replace(/[^0-9-]/g, ''))}
+                onKeyDown={(e) => { if (e.key === 'Enter') addLot(); }}
+                placeholder={t('currency_symbol')}
+                inputMode="numeric"
+                className="w-24 shrink-0 rounded-lg border border-ink-800 bg-ink-950 px-3 py-2 text-center text-sm text-ink-200 placeholder:text-ink-600 focus:border-accent-500/50 focus:outline-none"
               />
               <button
                 type="button"
@@ -415,7 +411,7 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
             </div>
 
             {/* Lot list + Rules panel */}
-            <div className="flex min-h-0 flex-1 gap-4">
+            <div className="flex flex-1 min-h-0 gap-4">
               {/* Rules panel */}
               <AnimatePresence initial={false}>
                 {rulesOpen && (
@@ -442,105 +438,116 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
               </AnimatePresence>
 
               {/* Lot list */}
-              <div className="flex-1 min-h-0 overflow-y-auto rounded-xl border border-ink-800 bg-ink-900/30 p-3">
+              <div className="flex-1 min-h-0 rounded-xl border border-ink-800 bg-ink-900/20 overflow-hidden">
                 {filteredLots.length === 0 ? (
-                  <div className="flex h-full items-center justify-center text-sm text-ink-600">
+                  <div className="flex items-center justify-center py-16 text-sm text-ink-600">
                     {t('auction_no_lots')}
                   </div>
                 ) : (
-                  <ul className="flex flex-col gap-2">
-                    {filteredLots.map((lot, idx) => (
-                      <li
-                        key={lot.id}
-                        className={`group flex items-center gap-2.5 rounded-lg border px-3 py-2.5 transition hover:border-ink-700 ${
-                          lot.pinned
-                            ? 'border-accent-500/40 bg-accent-500/5'
-                            : 'border-ink-800 bg-ink-950/50'
-                        }`}
-                      >
-                        <span className="shrink-0 text-xs font-bold text-ink-600 tabular-nums w-7 text-right">
-                          #{idx + 1}
-                        </span>
-                        {renamingId === lot.id ? (
-                          <input
-                            autoFocus
-                            value={renameValue}
-                            onChange={(e) => setRenameValue(e.target.value)}
-                            onBlur={() => renameLot(lot.id, renameValue)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') renameLot(lot.id, renameValue);
-                              if (e.key === 'Escape') setRenamingId(null);
-                            }}
-                            className="flex-1 rounded border border-accent-500/50 bg-ink-900 px-2 py-1 text-sm text-ink-100 focus:outline-none"
-                          />
-                        ) : (
-                          <button
-                            onClick={() => { setRenamingId(lot.id); setRenameValue(lot.name); }}
-                            className="flex-1 text-left text-sm font-medium text-ink-200 transition hover:text-accent-400 truncate"
+                  <div className="overflow-y-auto" style={{ maxHeight: 480 }}>
+                    <table className="w-full border-collapse">
+                      <tbody>
+                        {filteredLots.map((lot, idx) => (
+                          <tr
+                            key={lot.id}
+                            className={`group border-b border-ink-800/60 transition hover:bg-ink-800/30 ${idx % 2 === 0 ? 'bg-ink-900/40' : 'bg-ink-950/40'}`}
                           >
-                            {lot.name}
-                          </button>
-                        )}
-                        {editingPriceId === lot.id ? (
-                          <input
-                            autoFocus
-                            type="number"
-                            value={priceValue}
-                            onChange={(e) => setPriceValue(e.target.value)}
-                            onBlur={() => changePrice(lot.id, priceValue)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') changePrice(lot.id, priceValue);
-                              if (e.key === 'Escape') setEditingPriceId(null);
-                            }}
-                            className="w-24 rounded border border-accent-500/50 bg-ink-900 px-2 py-1 text-right text-sm text-ink-100 focus:outline-none"
-                          />
-                        ) : (
-                          <button
-                            onClick={() => { setEditingPriceId(lot.id); setPriceValue(String(lot.price)); }}
-                            className="shrink-0 rounded-md border border-ink-700 bg-ink-800 px-2.5 py-1 text-sm font-semibold text-ink-300 transition hover:border-accent-500/50 hover:text-accent-400 tabular-nums"
-                          >
-                            {lot.price}
-                          </button>
-                        )}
-                        {addSumId === lot.id ? (
-                          <input
-                            autoFocus
-                            type="number"
-                            value={addSumValue}
-                            onChange={(e) => setAddSumValue(e.target.value)}
-                            onBlur={() => addSumToLot(lot.id, addSumValue)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') addSumToLot(lot.id, addSumValue);
-                              if (e.key === 'Escape') { setAddSumId(null); setAddSumValue(''); }
-                            }}
-                            placeholder="+/-"
-                            className="w-16 rounded border border-accent-500/50 bg-ink-900 px-2 py-1 text-right text-sm text-ink-100 placeholder:text-ink-600 focus:outline-none"
-                          />
-                        ) : (
-                          <button
-                            onClick={() => { setAddSumId(lot.id); setAddSumValue(''); }}
-                            className="shrink-0 text-ink-600 opacity-0 transition hover:text-accent-400 group-hover:opacity-100"
-                            title={t('auction_add_sum')}
-                          >
-                            <Plus className="h-4 w-4" />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => togglePin(lot.id)}
-                          className={`shrink-0 transition ${lot.pinned ? 'text-accent-400' : 'text-ink-600 opacity-0 group-hover:opacity-100 hover:text-accent-400'}`}
-                          title={lot.pinned ? t('auction_unpin') : t('auction_pin')}
-                        >
-                          {lot.pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
-                        </button>
-                        <button
-                          onClick={() => removeLot(lot.id)}
-                          className="shrink-0 text-ink-600 opacity-0 transition hover:text-red-400 group-hover:opacity-100"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                            {/* Row number */}
+                            <td className="w-8 py-3 pl-4 text-sm font-medium text-ink-500 tabular-nums">{idx + 1}</td>
+                            {/* Colored # badge */}
+                            <td className="w-12 py-3 px-2">
+                              <span className="text-sm font-bold text-accent-400">#{idx + 1}</span>
+                            </td>
+                            {/* Name */}
+                            <td className="py-3 px-2 min-w-0">
+                              {renamingId === lot.id ? (
+                                <input
+                                  autoFocus
+                                  value={renameValue}
+                                  onChange={(e) => setRenameValue(e.target.value)}
+                                  onBlur={() => renameLot(lot.id, renameValue)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') renameLot(lot.id, renameValue);
+                                    if (e.key === 'Escape') setRenamingId(null);
+                                  }}
+                                  className="h-7 w-full rounded border border-accent-500/50 bg-ink-900 px-2 text-sm text-ink-100 focus:outline-none"
+                                />
+                              ) : (
+                                <button
+                                  onClick={() => { setRenamingId(lot.id); setRenameValue(lot.name); }}
+                                  className="text-left text-sm font-medium transition hover:text-accent-400 truncate max-w-xs"
+                                >
+                                  {lot.name || <span className="text-ink-600">{t('auction_lot_name_placeholder')}</span>}
+                                </button>
+                              )}
+                            </td>
+                            {/* Price */}
+                            <td className="w-28 py-3 px-3">
+                              <div className="flex items-center justify-end gap-1">
+                              {editingPriceId === lot.id ? (
+                                <input
+                                  autoFocus
+                                  value={priceValue}
+                                  onChange={(e) => setPriceValue(e.target.value.replace(/[^0-9-]/g, ''))}
+                                  onBlur={() => changePrice(lot.id, priceValue)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') changePrice(lot.id, priceValue);
+                                    if (e.key === 'Escape') setEditingPriceId(null);
+                                  }}
+                                  inputMode="numeric"
+                                  placeholder={t('currency_symbol')}
+                                  className="h-7 w-24 rounded border border-accent-500/50 bg-ink-900 px-2 text-center text-sm text-ink-100 placeholder:text-ink-600 focus:outline-none"
+                                />
+                              ) : (
+                                <button
+                                  onClick={() => { setEditingPriceId(lot.id); setPriceValue(lot.price === 0 ? '' : String(lot.price)); }}
+                                  className="text-sm font-semibold tabular-nums transition hover:text-accent-400 text-ink-300"
+                                >
+                                  {lot.price > 0 ? lot.price : <span className="text-ink-600">{t('currency_symbol')}</span>}
+                                </button>
+                              )}
+                              </div>
+                            </td>
+                            {/* Add sum */}
+                            <td className="w-20 py-3 px-1 text-center">
+                              {addSumId === lot.id ? (
+                                <input
+                                  autoFocus
+                                  value={addSumValue}
+                                  onChange={(e) => setAddSumValue(e.target.value.replace(/[^0-9-]/g, ''))}
+                                  onBlur={() => addSumToLot(lot.id, addSumValue)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') addSumToLot(lot.id, addSumValue);
+                                    if (e.key === 'Escape') { setAddSumId(null); setAddSumValue(''); }
+                                  }}
+                                  placeholder="+"
+                                  inputMode="numeric"
+                                  className="h-7 w-20 rounded border border-accent-500/50 bg-ink-900 px-2 text-center text-sm text-ink-100 placeholder:text-ink-600 focus:outline-none"
+                                />
+                              ) : (
+                                <button
+                                  onClick={() => { setAddSumId(lot.id); setAddSumValue(''); }}
+                                  className="text-ink-500 transition hover:text-accent-400"
+                                  title={t('auction_add_sum')}
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </button>
+                              )}
+                            </td>
+                            {/* Delete */}
+                            <td className="w-10 py-3 px-1 pr-4 text-center">
+                              <button
+                                onClick={() => removeLot(lot.id)}
+                                className="text-ink-600 transition hover:text-red-400"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
             </div>
@@ -789,18 +796,56 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
                   <ul className="flex flex-col gap-2">
                     {filteredArchive.map((a) => (
                       <li key={a.id} className="flex items-center justify-between rounded-lg border border-ink-800 bg-ink-950/50 px-3 py-2.5">
-                        <div>
-                          <p className="text-sm font-semibold text-ink-200">{a.name}</p>
-                          <p className="text-xs text-ink-600">
-                            {a.lots.length} lots · {a.bids.length} bids · {new Date(a.savedAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => setArchive((ar) => ar.filter((x) => x.id !== a.id))}
-                          className="text-ink-600 transition hover:text-red-400"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {renamingArchiveId === a.id ? (
+                          <div className="flex flex-1 items-center gap-2">
+                            <input
+                              autoFocus
+                              value={renameArchiveValue}
+                              onChange={(e) => setRenameArchiveValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') renameArchive(a.id, renameArchiveValue);
+                                if (e.key === 'Escape') setRenamingArchiveId(null);
+                              }}
+                              className="h-7 flex-1 rounded border border-accent-500/50 bg-ink-900 px-2 text-sm text-ink-100 focus:outline-none"
+                            />
+                            <button
+                              onClick={() => renameArchive(a.id, renameArchiveValue)}
+                              className="text-accent-400 transition hover:text-accent-300"
+                            >
+                              <Check className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => setRenamingArchiveId(null)}
+                              className="text-ink-600 transition hover:text-ink-400"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <div>
+                              <p className="text-sm font-semibold text-ink-200">{a.name}</p>
+                              <p className="text-xs text-ink-600">
+                                {a.lots.length} lots · {a.bids.length} bids · {new Date(a.savedAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => { setRenamingArchiveId(a.id); setRenameArchiveValue(a.name); }}
+                                className="text-ink-600 transition hover:text-accent-400"
+                                title={t('auction_archive_rename')}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => setArchive((ar) => ar.filter((x) => x.id !== a.id))}
+                                className="text-ink-600 transition hover:text-red-400"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </li>
                     ))}
                   </ul>

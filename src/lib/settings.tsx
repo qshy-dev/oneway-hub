@@ -10,6 +10,21 @@ import {
 const DEFAULT_COLOR = '#9146ff';
 const STORAGE_KEY = 'cw_app_settings_v1';
 
+export type Theme = 'dark' | 'light';
+
+function applyTheme(theme: Theme) {
+  const root = document.documentElement;
+  if (theme === 'light') {
+    root.classList.add('light');
+    root.classList.remove('dark');
+  } else {
+    root.classList.add('dark');
+    root.classList.remove('light');
+  }
+}
+
+applyTheme('dark');
+
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const m = hex.replace('#', '');
   const full =
@@ -69,6 +84,7 @@ export interface AppPrefs {
   includeOwn: boolean;
   ownCode: string | null;
   accentColor: string;
+  theme: Theme;
 }
 
 interface SettingsCtx {
@@ -78,16 +94,18 @@ interface SettingsCtx {
   setIncludeOwn: (v: boolean) => void;
   setOwnCode: (v: string | null) => void;
   setAccentColor: (v: string) => void;
+  setTheme: (v: Theme) => void;
 }
 
 const Ctx = createContext<SettingsCtx | null>(null);
 
 function loadPrefs(): AppPrefs {
   const defaults: AppPrefs = {
-    includeRandom: false,
+    includeRandom: true,
     includeOwn: false,
     ownCode: null,
     accentColor: DEFAULT_COLOR,
+    theme: 'dark',
   };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -98,6 +116,7 @@ function loadPrefs(): AppPrefs {
       includeOwn: Boolean(parsed.includeOwn),
       ownCode: parsed.ownCode ?? null,
       accentColor: parsed.accentColor || DEFAULT_COLOR,
+      theme: parsed.theme === 'light' ? 'light' : 'dark',
     };
   } catch {
     return defaults;
@@ -110,10 +129,11 @@ function savePrefs(p: AppPrefs) {
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [prefs, setPrefs] = useState<AppPrefs>({
-    includeRandom: false,
+    includeRandom: true,
     includeOwn: false,
     ownCode: null,
     accentColor: DEFAULT_COLOR,
+    theme: 'dark',
   });
   const [loading, setLoading] = useState(true);
 
@@ -121,6 +141,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     const p = loadPrefs();
     setPrefs(p);
     applyAccent(p.accentColor);
+    applyTheme(p.theme);
     setLoading(false);
   }, []);
 
@@ -131,8 +152,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         includeOwn: p.includeOwn ?? prev.includeOwn,
         ownCode: p.ownCode !== undefined ? p.ownCode : prev.ownCode,
         accentColor: p.accentColor ?? prev.accentColor,
+        theme: p.theme ?? prev.theme,
       };
       if (p.accentColor) applyAccent(p.accentColor);
+      if (p.theme) applyTheme(p.theme);
       savePrefs(next);
       return next;
     });
@@ -142,10 +165,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const setIncludeOwn = useCallback((v: boolean) => patch({ includeOwn: v }), [patch]);
   const setOwnCode = useCallback((v: string | null) => patch({ ownCode: v }), [patch]);
   const setAccentColor = useCallback((v: string) => patch({ accentColor: v }), [patch]);
+  const setTheme = useCallback((v: Theme) => patch({ theme: v }), [patch]);
 
   return (
     <Ctx.Provider
-      value={{ prefs, loading, setIncludeRandom, setIncludeOwn, setOwnCode, setAccentColor }}
+      value={{ prefs, loading, setIncludeRandom, setIncludeOwn, setOwnCode, setAccentColor, setTheme }}
     >
       {children}
     </Ctx.Provider>

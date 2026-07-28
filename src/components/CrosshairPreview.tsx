@@ -80,7 +80,7 @@ export function CrosshairPreview({
   }
 
   const bgFill =
-    background === 'dark' ? '#131316' : background === 'light' ? '#e5e5e5' : 'none';
+    background === 'dark' ? '#131316' : background === 'light' ? '#d8d8de' : 'none';
 
   const viewSize = 120;
   const outlineOffset = outlinePx * 0.5;

@@ -1,6 +1,6 @@
-import { SwatchBook, Palette, Globe } from 'lucide-react';
+import { SwatchBook, Palette, Globe, Moon, Sun, Check } from 'lucide-react';
 import { useI18n, type Lang } from '@/i18n';
-import { useSettings } from '@/lib/settings';
+import { useSettings, type Theme } from '@/lib/settings';
 
 const DEFAULT_COLOR = '#9146ff';
 const PRESET_COLORS = [
@@ -8,9 +8,14 @@ const PRESET_COLORS = [
   '#ef4444', '#ec4899', '#06b6d4', '#84cc16',
 ];
 
+const LANG_FLAGS: Record<Lang, string> = {
+  ru: '🇷🇺',
+  en: '🇬🇧',
+};
+
 export function SiteSettings() {
   const { t, lang, setLang } = useI18n();
-  const { prefs, setAccentColor } = useSettings();
+  const { prefs, setAccentColor, setTheme } = useSettings();
 
   return (
     <div className="mx-auto w-full max-w-2xl">
@@ -21,20 +26,72 @@ export function SiteSettings() {
             <Globe className="h-5 w-5 text-accent-400" />
             <h4 className="text-sm font-bold text-ink-100">{t('lang_label')}</h4>
           </div>
-          <div className="flex items-center gap-1 rounded-lg border border-ink-800 bg-ink-950 p-1">
-            {(['ru', 'en'] as Lang[]).map((l) => (
-              <button
-                key={l}
-                onClick={() => setLang(l)}
-                className={`flex-1 rounded-md px-4 py-2 text-sm font-semibold uppercase transition ${
-                  lang === l
-                    ? 'bg-ink-700 text-ink-100'
-                    : 'text-ink-500 hover:text-ink-300'
-                }`}
-              >
-                {l}
-              </button>
-            ))}
+          <div className="grid grid-cols-2 gap-3">
+            {(['ru', 'en'] as Lang[]).map((l) => {
+              const active = lang === l;
+              return (
+                <button
+                  key={l}
+                  onClick={() => setLang(l)}
+                  className={`group relative flex items-center gap-3 rounded-xl border p-4 transition ${
+                    active
+                      ? 'border-accent-500/60 bg-accent-500/10'
+                      : 'border-ink-800 bg-ink-950/50 hover:border-ink-700 hover:bg-ink-900/60'
+                  }`}
+                >
+                  <span className="text-2xl">{LANG_FLAGS[l]}</span>
+                  <div className="flex flex-col items-start">
+                    <span className={`text-sm font-bold ${active ? 'text-accent-400' : 'text-ink-200'}`}>
+                      {t(`lang_${l}` as 'lang_ru' | 'lang_en')}
+                    </span>
+                    <span className="text-xs font-medium uppercase tracking-wide text-ink-600">{l}</span>
+                  </div>
+                  {active && (
+                    <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-accent-500">
+                      <Check className="h-3 w-3 text-ink-950" strokeWidth={3} />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Theme */}
+        <div className="mb-8">
+          <div className="mb-3 flex items-center gap-2">
+            {prefs.theme === 'dark' ? <Moon className="h-5 w-5 text-accent-400" /> : <Sun className="h-5 w-5 text-accent-400" />}
+            <h4 className="text-sm font-bold text-ink-100">{t('theme_label')}</h4>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {(['light', 'dark'] as Theme[]).map((th) => {
+              const active = prefs.theme === th;
+              return (
+                <button
+                  key={th}
+                  onClick={() => setTheme(th)}
+                  className={`group relative flex items-center gap-3 rounded-xl border p-4 transition ${
+                    active
+                      ? 'border-accent-500/60 bg-accent-500/10'
+                      : 'border-ink-800 bg-ink-950/50 hover:border-ink-700 hover:bg-ink-900/60'
+                  }`}
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-ink-700 bg-ink-900">
+                    {th === 'dark' ? <Moon className="h-4 w-4 text-ink-300" /> : <Sun className="h-4 w-4 text-ink-300" />}
+                  </span>
+                  <div className="flex flex-col items-start">
+                    <span className={`text-sm font-bold ${active ? 'text-accent-400' : 'text-ink-200'}`}>
+                      {th === 'dark' ? t('theme_dark') : t('theme_light')}
+                    </span>
+                  </div>
+                  {active && (
+                    <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-accent-500">
+                      <Check className="h-3 w-3 text-ink-950" strokeWidth={3} />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
