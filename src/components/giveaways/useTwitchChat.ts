@@ -82,7 +82,7 @@ export function useTwitchChat({ onMessage, onLog, t }: UseTwitchChatOptions) {
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/twitch-viewers?channel=${encodeURIComponent(chan)}&_=${Date.now()}`;
       const res = await fetch(url, {
         headers: {
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
         cache: 'no-store',
       });

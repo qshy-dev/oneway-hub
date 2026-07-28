@@ -3,20 +3,28 @@ import { useEffect, useRef, useState } from 'react';
 /**
  * Reveals `text` one character at a time, like a typewriter.
  *
+ * Before starting, the cursor may "blink" as if the typist paused to think:
+ *  - 1/10 chance: cursor blinks once (off → on → off → on), then typing starts.
+ *  - 1/20 chance: cursor blinks twice, then typing starts.
+ *
  * With probability 1/`typoChance`, before revealing a real character it first
  * types a random neighboring-key typo, pauses briefly, deletes it, then
  * continues with the correct character. Returns the currently displayed
- * string and whether the animation has finished.
+ * string, whether the animation has finished, and whether the cursor is
+ * currently in the "thinking" blink phase (so the UI can show a blinking
+ * cursor even though no text is typed yet).
  */
 export function useTypewriter(text: string, opts?: { typoChance?: number; speed?: number; restartKey?: number }) {
   const { typoChance = 10, speed = 65, restartKey = 0 } = opts ?? {};
   const [display, setDisplay] = useState('');
   const [done, setDone] = useState(false);
+  const [thinking, setThinking] = useState(false);
   const idxRef = useRef(0);
 
   useEffect(() => {
     setDisplay('');
     setDone(false);
+    setThinking(false);
     idxRef.current = 0;
 
     let cancelled = false;
@@ -34,6 +42,7 @@ export function useTypewriter(text: string, opts?: { typoChance?: number; speed?
       const i = idxRef.current;
       if (i >= text.length) {
         setDone(true);
+        setThinking(false);
         return;
       }
       const ch = text[i];
@@ -65,12 +74,46 @@ export function useTypewriter(text: string, opts?: { typoChance?: number; speed?
       }
     };
 
-    timer = window.setTimeout(step, 250);
+    // Decide whether to do a "thinking" pause before typing starts.
+    // 1/20 chance → blink twice, 1/10 chance → blink once, otherwise start immediately.
+    const roll = Math.random() * 20;
+    let blinks = 0;
+    if (roll < 1) blinks = 2;
+    else if (roll < 2) blinks = 1;
+
+    const startTyping = () => {
+      setThinking(false);
+      timer = window.setTimeout(step, 150);
+    };
+
+    if (blinks > 0) {
+      setThinking(true);
+      // Each blink: cursor goes off for ~400ms, then on for ~400ms.
+      let remaining = blinks;
+      const blinkOnce = () => {
+        if (cancelled) return;
+        if (remaining <= 0) {
+          startTyping();
+          return;
+        }
+        remaining -= 1;
+        // Cursor "off" phase
+        timer = window.setTimeout(() => {
+          if (cancelled) return;
+          // Cursor "on" phase
+          timer = window.setTimeout(blinkOnce, 400);
+        }, 400);
+      };
+      timer = window.setTimeout(blinkOnce, 300);
+    } else {
+      timer = window.setTimeout(step, 250);
+    }
+
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
   }, [text, typoChance, speed, restartKey]);
 
-  return { display, done };
+  return { display, done, thinking };
 }

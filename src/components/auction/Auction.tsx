@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Play, RotateCcw,
   Plus, Search, Gavel, Disc, Archive, Trash2, Save, X, Clock, History as HistoryIcon, ListOrdered,
-  ScrollText, Minus,
+  ScrollText, Minus, Pin, PinOff,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useI18n } from '@/i18n';
@@ -153,6 +153,8 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
   const [renameValue, setRenameValue] = useState('');
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [priceValue, setPriceValue] = useState('');
+  const [addSumId, setAddSumId] = useState<string | null>(null);
+  const [addSumValue, setAddSumValue] = useState('');
   const [sideTab, setSideTab] = useState<'bids' | 'history'>('bids');
   const [newAuctionModal, setNewAuctionModal] = useState(false);
   const [newAuctionName, setNewAuctionName] = useState('');
@@ -253,11 +255,39 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
     });
   }, [addHistory, t]);
 
+  const togglePin = useCallback((id: string) => {
+    setLots((l) => l.map((x) => x.id === id ? { ...x, pinned: !x.pinned } : x));
+  }, []);
+
+  const addSumToLot = useCallback((id: string, amountStr: string) => {
+    const amount = parseInt(amountStr, 10);
+    if (isNaN(amount) || amount === 0) {
+      setAddSumId(null);
+      return;
+    }
+    setLots((l) => {
+      const lot = l.find((x) => x.id === id);
+      if (!lot) return l;
+      const newPrice = lot.price + amount;
+      addHistory(t('auction_log_lot_price').replace('{0}', lot.name).replace('{1}', String(lot.price)).replace('{2}', String(newPrice)));
+      return l.map((x) => x.id === id ? { ...x, price: newPrice } : x);
+    });
+    setAddSumId(null);
+    setAddSumValue('');
+  }, [addHistory, t]);
+
+  const sortedLots = useMemo(() => {
+    const pinned = lots.filter((l) => l.pinned);
+    const rest = lots.filter((l) => !l.pinned);
+    const byPrice = (a: Lot, b: Lot) => b.price - a.price;
+    return [...pinned.sort(byPrice), ...rest.sort(byPrice)];
+  }, [lots]);
+
   const filteredLots = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return lots;
-    return lots.filter((l) => l.name.toLowerCase().includes(q));
-  }, [lots, search]);
+    if (!q) return sortedLots;
+    return sortedLots.filter((l) => l.name.toLowerCase().includes(q));
+  }, [sortedLots, search]);
 
   const filteredArchive = useMemo(() => {
     const q = archiveSearch.trim().toLowerCase();
@@ -338,6 +368,7 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
                 className="w-24 shrink-0 rounded-lg border border-ink-800 bg-ink-950 px-3 py-2 text-sm text-ink-200 placeholder:text-ink-600 focus:border-accent-500/50 focus:outline-none"
               />
               <button
+                type="button"
                 onClick={addLot}
                 className="shrink-0 flex items-center gap-1.5 rounded-lg bg-accent-500 px-3 py-2 text-sm font-semibold text-ink-950 transition hover:bg-accent-400"
               >
@@ -418,12 +449,18 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
                   </div>
                 ) : (
                   <ul className="flex flex-col gap-2">
-                    {filteredLots.map((lot) => (
+                    {filteredLots.map((lot, idx) => (
                       <li
                         key={lot.id}
-                        className="group flex items-center gap-3 rounded-lg border border-ink-800 bg-ink-950/50 px-3 py-2.5 transition hover:border-ink-700"
+                        className={`group flex items-center gap-2.5 rounded-lg border px-3 py-2.5 transition hover:border-ink-700 ${
+                          lot.pinned
+                            ? 'border-accent-500/40 bg-accent-500/5'
+                            : 'border-ink-800 bg-ink-950/50'
+                        }`}
                       >
-                        <Gavel className="h-4 w-4 shrink-0 text-accent-400" />
+                        <span className="shrink-0 text-xs font-bold text-ink-600 tabular-nums w-7 text-right">
+                          #{idx + 1}
+                        </span>
                         {renamingId === lot.id ? (
                           <input
                             autoFocus
@@ -439,7 +476,7 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
                         ) : (
                           <button
                             onClick={() => { setRenamingId(lot.id); setRenameValue(lot.name); }}
-                            className="flex-1 text-left text-sm font-medium text-ink-200 transition hover:text-accent-400"
+                            className="flex-1 text-left text-sm font-medium text-ink-200 transition hover:text-accent-400 truncate"
                           >
                             {lot.name}
                           </button>
@@ -460,11 +497,41 @@ export function Auction({ tab }: { tab: 'auction' | 'wheel' }) {
                         ) : (
                           <button
                             onClick={() => { setEditingPriceId(lot.id); setPriceValue(String(lot.price)); }}
-                            className="shrink-0 rounded-md border border-ink-700 bg-ink-800 px-2.5 py-1 text-sm font-semibold text-ink-300 transition hover:border-accent-500/50 hover:text-accent-400"
+                            className="shrink-0 rounded-md border border-ink-700 bg-ink-800 px-2.5 py-1 text-sm font-semibold text-ink-300 transition hover:border-accent-500/50 hover:text-accent-400 tabular-nums"
                           >
                             {lot.price}
                           </button>
                         )}
+                        {addSumId === lot.id ? (
+                          <input
+                            autoFocus
+                            type="number"
+                            value={addSumValue}
+                            onChange={(e) => setAddSumValue(e.target.value)}
+                            onBlur={() => addSumToLot(lot.id, addSumValue)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') addSumToLot(lot.id, addSumValue);
+                              if (e.key === 'Escape') { setAddSumId(null); setAddSumValue(''); }
+                            }}
+                            placeholder="+/-"
+                            className="w-16 rounded border border-accent-500/50 bg-ink-900 px-2 py-1 text-right text-sm text-ink-100 placeholder:text-ink-600 focus:outline-none"
+                          />
+                        ) : (
+                          <button
+                            onClick={() => { setAddSumId(lot.id); setAddSumValue(''); }}
+                            className="shrink-0 text-ink-600 opacity-0 transition hover:text-accent-400 group-hover:opacity-100"
+                            title={t('auction_add_sum')}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => togglePin(lot.id)}
+                          className={`shrink-0 transition ${lot.pinned ? 'text-accent-400' : 'text-ink-600 opacity-0 group-hover:opacity-100 hover:text-accent-400'}`}
+                          title={lot.pinned ? t('auction_unpin') : t('auction_pin')}
+                        >
+                          {lot.pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+                        </button>
                         <button
                           onClick={() => removeLot(lot.id)}
                           className="shrink-0 text-ink-600 opacity-0 transition hover:text-red-400 group-hover:opacity-100"
