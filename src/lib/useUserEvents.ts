@@ -115,5 +115,17 @@ export function useUserEvents() {
     });
   }, [user]);
 
-  return { events, knownUsers, loading, addEvent, upsertParticipants, incrementWinner, refetch: fetchEvents };
+  const clearAllData = useCallback(async () => {
+    if (!user) return;
+    const [eventsDel, knownDel] = await Promise.all([
+      supabase.from('user_events').delete().eq('user_id', user.id),
+      supabase.from('user_known_users').delete().eq('user_id', user.id),
+    ]);
+    if (eventsDel.error) throw eventsDel.error;
+    if (knownDel.error) throw knownDel.error;
+    setEvents([]);
+    setKnownUsers([]);
+  }, [user]);
+
+  return { events, knownUsers, loading, addEvent, upsertParticipants, incrementWinner, refetch: fetchEvents, clearAllData };
 }
