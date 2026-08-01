@@ -13,7 +13,7 @@ interface FollowedChannel {
 
 export function Profile({ userId }: { userId?: string | null }) {
   const { t } = useI18n();
-  const { profile: ownProfile, user, loading: authLoading, signInWithTwitch, signOut, session } = useAuth();
+  const { profile: ownProfile, user, loading: authLoading, signInWithTwitch, signOut, session, refreshSession } = useAuth();
   const [externalProfile, setExternalProfile] = useState<ProfileRow | null>(null);
   const [extLoading, setExtLoading] = useState(false);
   const [showFollows, setShowFollows] = useState(false);
@@ -44,7 +44,7 @@ export function Profile({ userId }: { userId?: string | null }) {
       });
   }, [userId]);
 
-  const loadFollows = async () => {
+  const loadFollows = async (attempt = 0) => {
     if (!profile?.twitch_username) return;
     setFollowsLoading(true);
     setFollowsError(null);
@@ -61,7 +61,14 @@ export function Profile({ userId }: { userId?: string | null }) {
       if (data.error) throw new Error(data.error);
       setFollows(data.follows ?? []);
     } catch (err) {
-      setFollowsError(err instanceof Error ? err.message : 'Failed to load');
+      const msg = err instanceof Error ? err.message : 'Failed to load';
+      if (attempt === 0 && (msg === 'no provider token' || msg === 'token validation failed' || msg === 'Failed to fetch' || msg.startsWith('HTTP 5'))) {
+        setFollowsLoading(false);
+        await refreshSession();
+        loadFollows(1);
+        return;
+      }
+      setFollowsError(msg);
       setFollows([]);
     } finally {
       setFollowsLoading(false);
@@ -70,7 +77,7 @@ export function Profile({ userId }: { userId?: string | null }) {
 
   const openFollows = () => {
     setShowFollows(true);
-    if (follows.length === 0) loadFollows();
+    if (follows.length === 0) loadFollows(0);
   };
 
   if (loading) {
@@ -145,14 +152,9 @@ export function Profile({ userId }: { userId?: string | null }) {
               </h2>
             )}
             {profile?.twitch_username && (
-              <a
-                href={`https://twitch.tv/${profile.twitch_username}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm text-ink-400 transition hover:text-accent-400"
-              >
+              <p className="text-sm text-ink-500">
                 @{profile.twitch_username}
-              </a>
+              </p>
             )}
           </div>
           {!isExternal && (

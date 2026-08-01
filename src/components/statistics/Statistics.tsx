@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Gavel, Gift, Users, Coins, DollarSign, Package, Trophy, CalendarDays, Banknote,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Trash2, AlertTriangle,
 } from 'lucide-react';
 import { useI18n } from '@/i18n';
 import { useUserEvents } from '@/lib/useUserEvents';
@@ -10,7 +10,7 @@ import { useUserEvents } from '@/lib/useUserEvents';
 type StatCard = {
   icon: React.ReactNode;
   label: string;
-  value: string;
+  value: React.ReactNode;
   accent: string;
 };
 
@@ -35,7 +35,7 @@ type GiveawayData = {
 
 export function Statistics() {
   const { t, lang } = useI18n();
-  const { events, knownUsers, loading } = useUserEvents();
+  const { events, knownUsers, loading, clearAllData } = useUserEvents();
   const currencySymbol = lang === 'ru' ? '₽' : '$';
   const MONTHS = lang === 'ru' ? MONTHS_RU : MONTHS_EN;
 
@@ -45,6 +45,22 @@ export function Statistics() {
     return Math.floor(m / 3);
   });
   const [calDir, setCalDir] = useState<1 | -1>(1);
+  const [clearModal, setClearModal] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [clearError, setClearError] = useState<string | null>(null);
+
+  const handleClearData = async () => {
+    setClearing(true);
+    setClearError(null);
+    try {
+      await clearAllData();
+      setClearModal(false);
+    } catch {
+      setClearError(t('stat_clear_error'));
+    } finally {
+      setClearing(false);
+    }
+  };
 
   const auctionEvents = useMemo(
     () => events.filter((e) => e.type === 'auction') as (typeof events[number] & { data: AuctionData })[],
@@ -81,9 +97,9 @@ export function Statistics() {
   );
 
   const topWinner = useMemo(() => {
-    if (knownUsers.length === 0 || knownUsers.every((u) => u.win_count === 0)) return '—';
+    if (knownUsers.length === 0 || knownUsers.every((u) => u.win_count === 0)) return null;
     const top = [...knownUsers].sort((a, b) => b.win_count - a.win_count)[0];
-    return `${top.username} (${top.win_count})`;
+    return top;
   }, [knownUsers]);
 
   const biggestAuction = useMemo(() => {
@@ -149,7 +165,17 @@ export function Statistics() {
     { icon: <Coins className="h-5 w-5" />, label: t('stat_points_spent'), value: String(totalDonations), accent: 'text-amber-400' },
     { icon: <Banknote className="h-5 w-5" />, label: t('stat_donations'), value: `${totalDonations} ${currencySymbol}`, accent: 'text-green-400' },
     { icon: <Package className="h-5 w-5" />, label: t('stat_lots_total'), value: String(totalLots), accent: 'text-pink-400' },
-    { icon: <Trophy className="h-5 w-5" />, label: t('stat_top_winner'), value: topWinner, accent: 'text-yellow-400' },
+    { icon: <Trophy className="h-5 w-5" />, label: t('stat_top_winner'), value: topWinner ? (
+        <span className="flex items-baseline gap-2">
+          <span className="truncate">{topWinner.username}</span>
+          <span
+            className="shrink-0 text-2xl font-extrabold tabular-nums text-yellow-400"
+            title={t('stat_top_winner_tooltip')}
+          >
+            {topWinner.win_count}
+          </span>
+        </span>
+      ) : t('stat_top_winner_empty'), accent: 'text-yellow-400' },
   ];
 
   const topBlocks = [
@@ -166,8 +192,6 @@ export function Statistics() {
     'bg-accent-500/60',
     'bg-accent-500/90',
   ];
-
-  const maxCell = Math.max(...calendar, 1);
 
   const quarterMonths = [calendarQuarter * 3, calendarQuarter * 3 + 1, calendarQuarter * 3 + 2];
   const canGoLeft = calendarQuarter > 0 || calendarYear > 2025;
@@ -254,8 +278,7 @@ export function Statistics() {
                     {Array.from({ length: 31 }, (_, d) => {
                       const idx = m * 31 + d;
                       const level = calendar[idx] ?? 0;
-                      const norm = level / maxCell;
-                      const heatIdx = level === 0 ? 0 : Math.min(4, Math.ceil(norm * 4));
+                      const heatIdx = level === 0 ? 0 : level === 1 ? 1 : level === 2 ? 2 : level === 3 ? 3 : 4;
                       return (
                         <div
                           key={d}
@@ -295,6 +318,59 @@ export function Statistics() {
           </div>
         ))}
       </div>
+
+      {/* Clear data button */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => setClearModal(true)}
+          className="flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-500/20"
+        >
+          <Trash2 className="h-4 w-4" />
+          {t('stat_clear_data')}
+        </button>
+      </div>
+
+      {/* Clear data confirmation modal */}
+      <AnimatePresence>
+        {clearModal && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={() => !clearing && setClearModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl border border-ink-800 bg-ink-900 p-6"
+            >
+              <div className="mb-4 flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-red-400" />
+                <h3 className="text-lg font-bold text-ink-100">{t('stat_clear_confirm_title')}</h3>
+              </div>
+              <p className="mb-6 text-sm text-ink-400">{t('stat_clear_confirm_desc')}</p>
+              {clearError && (
+                <p className="mb-4 text-sm text-red-400">{clearError}</p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setClearModal(false)}
+                  disabled={clearing}
+                  className="flex-1 rounded-lg border border-ink-700 bg-ink-800 px-4 py-2.5 text-sm font-semibold text-ink-200 transition hover:bg-ink-700 disabled:opacity-50"
+                >
+                  {t('cancel')}
+                </button>
+                <button
+                  onClick={handleClearData}
+                  disabled={clearing}
+                  className="flex-1 rounded-lg bg-red-500 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-600 disabled:opacity-50"
+                >
+                  {clearing ? t('stat_clearing') : t('stat_clear_confirm')}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

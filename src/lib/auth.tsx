@@ -10,6 +10,7 @@ type AuthContextValue = {
   signInWithTwitch: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  refreshSession: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -76,6 +77,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   }, []);
 
+  const refreshSession = useCallback(async () => {
+    const { data, error } = await supabase.auth.refreshSession();
+    if (error) {
+      console.error('Session refresh failed:', error.message);
+      return;
+    }
+    if (data.session) {
+      setSession(data.session);
+    }
+  }, []);
+
   const refreshProfile = useCallback(async () => {
     if (session?.user) {
       await fetchProfile(session.user.id);
@@ -92,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signInWithTwitch,
         signOut,
         refreshProfile,
+        refreshSession,
       }}
     >
       {children}

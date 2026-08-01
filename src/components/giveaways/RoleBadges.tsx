@@ -1,16 +1,18 @@
 import { Shield, Crown, Star, BadgeCheck } from 'lucide-react';
 import type { ChatterRole } from './types';
+import { useI18n } from '@/i18n';
 
-const ROLE_META: Record<ChatterRole, { icon: typeof Shield; title: string; className: string }> = {
-  broadcaster: { icon: Crown, title: 'Стример', className: 'text-red-400' },
-  mod: { icon: Shield, title: 'Модератор', className: 'text-blue-400' },
-  vip: { icon: Star, title: 'VIP', className: 'text-pink-400' },
-  subscriber: { icon: BadgeCheck, title: 'Подписчик', className: 'text-amber-400' },
+const ROLE_META: Record<ChatterRole, { icon: typeof Shield; titleKey: string; className: string }> = {
+  broadcaster: { icon: Crown, titleKey: 'role_broadcaster', className: 'text-red-400' },
+  mod: { icon: Shield, titleKey: 'role_mod', className: 'text-blue-400' },
+  vip: { icon: Star, titleKey: 'role_vip', className: 'text-pink-400' },
+  subscriber: { icon: BadgeCheck, titleKey: 'role_subscriber', className: 'text-amber-400' },
 };
 
 const ROLE_ORDER: ChatterRole[] = ['broadcaster', 'mod', 'vip', 'subscriber'];
 
 export function RoleBadges({ roles, size = 14 }: { roles: ChatterRole[]; size?: number }) {
+  const { t } = useI18n();
   if (!roles || roles.length === 0) return null;
   const ordered = ROLE_ORDER.filter((r) => roles.includes(r));
   if (ordered.length === 0) return null;
@@ -23,8 +25,9 @@ export function RoleBadges({ roles, size = 14 }: { roles: ChatterRole[]; size?: 
           <Icon
             key={r}
             style={{ width: size, height: size }}
-            className={meta.className}
-            aria-label={meta.title}
+            className={`${meta.className} transition-opacity hover:opacity-100`}
+            aria-label={t(meta.titleKey)}
+            title={t(meta.titleKey)}
           />
         );
       })}

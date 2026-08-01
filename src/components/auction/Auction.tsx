@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Play, RotateCcw,
   Plus, Search, Gavel, Archive, Trash2, Save, X, Clock, History as HistoryIcon, ListOrdered,
-  ScrollText, Minus, Pencil, Check, Eye, EyeOff, Percent,
+  ScrollText, Minus, Pencil, Check, Eye, EyeOff, Percent, Plug, AlertTriangle, DollarSign, Coins,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useI18n } from '@/i18n';
@@ -10,6 +10,9 @@ import type { Lot, Bid, HistoryEntry, ArchivedAuction } from './types';
 import { RulesEditor } from './RulesEditor';
 import { AuctionWheel } from './AuctionWheel';
 import { useUserEvents } from '@/lib/useUserEvents';
+import { useAuth } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
+import { TwitchIcon } from '@/components/TwitchIcon';
 
 const DEFAULT_CS = 30 * 60 * 100;        // 30 min in centiseconds
 const HH_MM_SS_THRESHOLD = 60 * 60 * 100; // >= 60 min → show HH:MM:SS
@@ -172,8 +175,66 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
   const [rules, setRules] = useState<string>(loadRules);
   const [showTotalSum, setShowTotalSum] = useState(false);
   const [showPercent, setShowPercent] = useState(false);
+  const [servicesModal, setServicesModal] = useState(false);
+  const [donationServices, setDonationServices] = useState<Record<string, boolean>>({});
+  const [serviceConnecting, setServiceConnecting] = useState<string | null>(null);
+  const [channelPointsEnabled, setChannelPointsEnabled] = useState(false);
   const tickRef = useRef<number | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+
+  const { user, session, profile: authProfile, signInWithTwitch, signOut } = useAuth();
+
+  // Load donation services + channel points setting from DB
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from('user_donation_services')
+        .select('service, connected')
+        .eq('user_id', user.id);
+      if (data) {
+        const map: Record<string, boolean> = {};
+        for (const row of data) map[row.service] = row.connected;
+        setDonationServices(map);
+        if (map['channel_points']) setChannelPointsEnabled(true);
+      }
+    })();
+  }, [user]);
+
+  const toggleService = async (service: string) => {
+    if (!user) return;
+    setServiceConnecting(service);
+    const newConnected = !donationServices[service];
+    const { error } = await supabase
+      .from('user_donation_services')
+      .upsert({
+        user_id: user.id,
+        service,
+        connected: newConnected,
+        connected_at: newConnected ? new Date().toISOString() : null,
+      }, { onConflict: 'user_id,service' });
+    if (!error) {
+      setDonationServices((prev) => ({ ...prev, [service]: newConnected }));
+    }
+    setServiceConnecting(null);
+  };
+
+  const toggleChannelPoints = async () => {
+    if (!user) return;
+    if (!session?.provider_token && !channelPointsEnabled) return;
+    setServiceConnecting('channel_points');
+    const newVal = !channelPointsEnabled;
+    const { error } = await supabase
+      .from('user_donation_services')
+      .upsert({
+        user_id: user.id,
+        service: 'channel_points',
+        connected: newVal,
+        connected_at: newVal ? new Date().toISOString() : null,
+      }, { onConflict: 'user_id,service' });
+    if (!error) setChannelPointsEnabled(newVal);
+    setServiceConnecting(null);
+  };
 
   // Timer display mode: HH:MM:SS when >= 60 min, else MM:SS:CS
   // Switch to HH:MM:SS once time exceeds 59m 59s 99cs
@@ -720,6 +781,15 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
             </div>
           </div>
 
+          {/* Connect services button */}
+          <button
+            onClick={() => setServicesModal(true)}
+            className="flex items-center justify-center gap-2 rounded-xl border border-accent-500/30 bg-accent-500/10 px-4 py-2.5 text-sm font-semibold text-accent-400 transition hover:bg-accent-500/20"
+          >
+            <Plug className="h-4 w-4" />
+            {t('auction_connect_services')}
+          </button>
+
           {/* Bids / History */}
           <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-ink-800 bg-ink-900/40">
             <div className="flex border-b border-ink-800">
@@ -738,7 +808,7 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
                 {t('auction_history')}
               </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+            <div className="min-h-0 flex-1 overflow-y-auto p-3" style={{ maxHeight: '320px' }}>
               {sideTab === 'bids' ? (
                 bids.length === 0 ? (
                   <p className="flex h-full items-center justify-center text-xs text-ink-600">{t('auction_no_bids')}</p>
@@ -769,6 +839,135 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
           </div>
         </div>
       )}
+
+      {/* Services modal */}
+      <AnimatePresence>
+        {servicesModal && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={() => setServicesModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-2xl border border-ink-800 bg-ink-900 p-6"
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-bold text-ink-100">{t('auction_services_title')}</h3>
+                <button
+                  onClick={() => setServicesModal(false)}
+                  className="text-ink-600 transition hover:text-ink-400"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <p className="mb-4 text-sm text-ink-500">{t('auction_services_desc')}</p>
+              <div className="flex flex-col gap-3">
+                {/* Twitch */}
+                <div className="flex items-center justify-between rounded-xl border border-ink-800 bg-ink-950/40 p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-ink-800">
+                      <TwitchIcon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-ink-100">{t('auction_service_twitch')}</p>
+                      <p className="text-xs text-ink-500">
+                        {session?.provider_token
+                          ? t('auction_service_twitch_connected').replace('{0}', authProfile?.twitch_display_name || authProfile?.twitch_username || '')
+                          : t('auction_service_twitch_not_connected')}
+                      </p>
+                    </div>
+                  </div>
+                  {session?.provider_token ? (
+                    <button
+                      onClick={signOut}
+                      className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-xs font-bold text-red-400 transition hover:bg-red-500/20"
+                    >
+                      {t('auction_service_twitch_disconnect')}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={signInWithTwitch}
+                      className="rounded-lg bg-accent-500 px-4 py-2 text-xs font-bold text-ink-950 transition hover:bg-accent-400"
+                    >
+                      {t('auction_service_twitch_connect')}
+                    </button>
+                  )}
+                </div>
+
+                {/* Channel points toggle */}
+                <div className={`flex items-center justify-between rounded-xl border p-4 transition ${
+                  session?.provider_token ? 'border-ink-800 bg-ink-950/40' : 'border-ink-800/50 bg-ink-950/20 opacity-60'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-ink-800">
+                      <Coins className="h-5 w-5 text-accent-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-ink-100">{t('auction_service_channel_points')}</p>
+                      <p className="text-xs text-ink-500">
+                        {session?.provider_token ? t('auction_service_channel_points_desc') : t('auction_service_channel_points_hint')}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={toggleChannelPoints}
+                    disabled={!session?.provider_token || serviceConnecting === 'channel_points'}
+                    className={`relative h-6 w-11 rounded-full transition disabled:cursor-not-allowed ${
+                      channelPointsEnabled ? 'bg-accent-500' : 'bg-ink-700'
+                    }`}
+                  >
+                    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition ${channelPointsEnabled ? 'left-[22px]' : 'left-0.5'}`} />
+                  </button>
+                </div>
+
+                {/* Donation services */}
+                {(['donation_alerts', 'donatpay'] as const).map((svc) => {
+                  const isConnected = donationServices[svc] ?? false;
+                  const isConnecting = serviceConnecting === svc;
+                  return (
+                    <div
+                      key={svc}
+                      className="flex items-center justify-between rounded-xl border border-ink-800 bg-ink-950/40 p-4"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-ink-800">
+                          <DollarSign className="h-5 w-5 text-accent-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-ink-100">
+                            {svc === 'donation_alerts' ? t('auction_service_donation_alerts') : t('auction_service_donatpay')}
+                          </p>
+                          <p className="text-xs text-ink-500">
+                            {isConnected ? t('auction_service_connected') : t('auction_service_not_connected')}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => toggleService(svc)}
+                        disabled={isConnecting}
+                        className={`rounded-lg px-4 py-2 text-xs font-bold transition disabled:opacity-50 ${
+                          isConnected
+                            ? 'border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20'
+                            : 'bg-accent-500 text-ink-950 hover:bg-accent-400'
+                        }`}
+                      >
+                        {isConnecting
+                          ? t('auction_service_connecting')
+                          : isConnected
+                            ? t('auction_service_disconnect')
+                            : t('auction_service_connect')}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-4 text-center text-xs text-ink-600">{t('auction_service_coming_soon')}</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* New auction modal */}
       <AnimatePresence>
