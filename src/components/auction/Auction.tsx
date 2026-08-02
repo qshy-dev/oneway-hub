@@ -183,6 +183,7 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
   const nameInputRef = useRef<HTMLInputElement>(null);
 
   const { user, session, profile: authProfile, signInWithTwitch, signOut } = useAuth();
+  const twitchConnected = !!user?.app_metadata?.provider && user.app_metadata.provider === 'twitch' || !!authProfile?.twitch_id;
 
   // Load donation services + channel points setting from DB
   useEffect(() => {
@@ -203,7 +204,7 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
 
   const toggleChannelPoints = async () => {
     if (!user) return;
-    if (!session?.provider_token && !channelPointsEnabled) return;
+    if (!twitchConnected && !channelPointsEnabled) return;
     setServiceConnecting('channel_points');
     const newVal = !channelPointsEnabled;
     const { error } = await supabase
@@ -214,7 +215,26 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
         connected: newVal,
         connected_at: newVal ? new Date().toISOString() : null,
       }, { onConflict: 'user_id,service' });
-    if (!error) setChannelPointsEnabled(newVal);
+    if (error) {
+      setServiceConnecting(null);
+      return;
+    }
+    setChannelPointsEnabled(newVal);
+
+    // Create or remove EventSub subscription via edge function
+    try {
+      const action = newVal ? 'subscribe' : 'unsubscribe';
+      const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/twitch-eventsub-manage?action=${action}`;
+      await fetch(fnUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session?.access_token ?? ''}`,
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch {
+      // Non-fatal: the toggle state is already saved; subscription will retry on next toggle
+    }
     setServiceConnecting(null);
   };
 
@@ -356,6 +376,24 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
       addHistory(t('auction_auto_match_no_lot').replace('{0}', text));
     }
   }, [lots, sortedLots, addHistory, t]);
+
+  // Realtime: listen for new auction_bids from channel-point redemptions and auto-match to lots
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('auction-bids-realtime')
+      .on('postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'auction_bids', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const bid = payload.new as { input_text: string; amount: number; twitch_username: string };
+          if (bid?.input_text && bid.amount > 0) {
+            autoMatchLot(bid.input_text, bid.amount);
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, autoMatchLot]);
 
   const filteredLots = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -886,13 +924,13 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
                     <div>
                       <p className="text-sm font-bold text-ink-100">{t('auction_service_twitch')}</p>
                       <p className="text-xs text-ink-500">
-                        {session?.provider_token
+                        {twitchConnected
                           ? t('auction_service_twitch_connected').replace('{0}', authProfile?.twitch_display_name || authProfile?.twitch_username || '')
                           : t('auction_service_twitch_not_connected')}
                       </p>
                     </div>
                   </div>
-                  {session?.provider_token ? (
+                  {twitchConnected ? (
                     <button
                       onClick={signOut}
                       className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-xs font-bold text-red-400 transition hover:bg-red-500/20"
@@ -911,7 +949,7 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
 
                 {/* Channel points toggle */}
                 <div className={`flex items-center justify-between rounded-xl border p-4 transition ${
-                  session?.provider_token ? 'border-ink-800 bg-ink-950/40' : 'border-ink-800/50 bg-ink-950/20 opacity-60'
+                  twitchConnected ? 'border-ink-800 bg-ink-950/40' : 'border-ink-800/50 bg-ink-950/20 opacity-60'
                 }`}>
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-ink-800">
@@ -920,13 +958,13 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
                     <div>
                       <p className="text-sm font-bold text-ink-100">{t('auction_service_channel_points')}</p>
                       <p className="text-xs text-ink-500">
-                        {session?.provider_token ? t('auction_service_channel_points_desc') : t('auction_service_channel_points_hint')}
+                        {twitchConnected ? t('auction_service_channel_points_desc') : t('auction_service_channel_points_hint')}
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={toggleChannelPoints}
-                    disabled={!session?.provider_token || serviceConnecting === 'channel_points'}
+                    disabled={!twitchConnected || serviceConnecting === 'channel_points'}
                     className={`relative h-6 w-11 rounded-full transition disabled:cursor-not-allowed ${
                       channelPointsEnabled ? 'bg-accent-500' : 'bg-ink-700'
                     }`}
