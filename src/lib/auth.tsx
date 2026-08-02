@@ -48,6 +48,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (newSession?.user) {
         (async () => {
           await fetchProfile(newSession.user.id);
+          // Save Twitch provider_token to profile for EventSub subscriptions
+          if (newSession.provider_token) {
+            await supabase
+              .from('profiles')
+              .update({ twitch_access_token: newSession.provider_token })
+              .eq('id', newSession.user.id);
+          }
         })();
       } else {
         setProfile(null);
