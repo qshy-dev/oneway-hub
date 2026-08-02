@@ -92,7 +92,7 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
   const segments = useMemo(() => {
     if (activeLots.length === 0 || totalSum === 0) return [];
     if (wheelType === 'elimination') {
-      const inv = activeLots.map((l) => 1 / l.price);
+      const inv = activeLots.map((l) => 1 / Math.max(l.price, 1));
       const invSum = inv.reduce((a, b) => a + b, 0);
       let acc = 0;
       return activeLots.map((lot, i) => {
@@ -372,10 +372,7 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
   const canSpin = phase !== 'spinning' && !(wheelType === 'elimination' && (!!winner || !!pendingWinner) && !eliminationComplete);
   const idle = phase === 'idle';
 
-  const invWeightSum = useMemo(() => {
-    if (wheelType !== 'elimination') return 0;
-    return segments.reduce((sum, s) => sum + (s.weight > 0 ? 1 / s.weight : 0), 0);
-  }, [segments, wheelType]);
+
 
   return (
     <div className="flex flex-1 min-h-0 gap-6">
@@ -421,9 +418,7 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
               );
             }
             const weight = seg ? seg.weight : 0;
-            const winPct = wheelType === 'elimination' && weight > 0 && invWeightSum > 0
-              ? (1 / weight / invWeightSum) * 100
-              : weight * 100;
+            const winPct = weight * 100;
             return (
               <button
                 key={lot.id}

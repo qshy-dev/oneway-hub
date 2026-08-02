@@ -481,6 +481,11 @@ const ru: Dict = {
   auction_service_channel_points: 'Ставки за баллы канала',
   auction_service_channel_points_desc: 'Принимать ставки через Twitch-награды за баллы канала',
   auction_service_channel_points_hint: 'Требуется привязанный Twitch',
+  auction_service_donation_soon: 'Скоро',
+  auction_auto_match_lot: 'Авто-матч лота',
+  auction_auto_match_desc: 'Суммы донатов и ставок за баллы канала автоматически добавляются к лоту, если в тексте есть #номер или название лота',
+  auction_auto_match_donation: 'Донат "{0}" → лот "{1}" (+{2})',
+  auction_auto_match_no_lot: 'Донат "{0}" — лот не найден',
 };
 
 const en: Dict = {
@@ -959,6 +964,11 @@ const en: Dict = {
   auction_service_channel_points: 'Channel points bids',
   auction_service_channel_points_desc: 'Accept bids via Twitch channel point rewards',
   auction_service_channel_points_hint: 'Requires connected Twitch',
+  auction_service_donation_soon: 'Soon',
+  auction_auto_match_lot: 'Auto-match lot',
+  auction_auto_match_desc: 'Donation and channel point amounts are automatically added to a lot if the text contains #number or lot name',
+  auction_auto_match_donation: 'Donation "{0}" → lot "{1}" (+{2})',
+  auction_auto_match_no_lot: 'Donation "{0}" — lot not found',
 };
 
 const dicts: Record<Lang, Dict> = { ru, en };

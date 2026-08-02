@@ -201,24 +201,6 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
     })();
   }, [user]);
 
-  const toggleService = async (service: string) => {
-    if (!user) return;
-    setServiceConnecting(service);
-    const newConnected = !donationServices[service];
-    const { error } = await supabase
-      .from('user_donation_services')
-      .upsert({
-        user_id: user.id,
-        service,
-        connected: newConnected,
-        connected_at: newConnected ? new Date().toISOString() : null,
-      }, { onConflict: 'user_id,service' });
-    if (!error) {
-      setDonationServices((prev) => ({ ...prev, [service]: newConnected }));
-    }
-    setServiceConnecting(null);
-  };
-
   const toggleChannelPoints = async () => {
     if (!user) return;
     if (!session?.provider_token && !channelPointsEnabled) return;
@@ -345,6 +327,35 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
   const sortedLots = useMemo(() => {
     return [...lots].sort((a, b) => b.price - a.price);
   }, [lots]);
+
+  // Auto-match: parse donation/channel-point text to find a lot by #number or name, add amount
+  const autoMatchLot = useCallback((text: string, amount: number) => {
+    if (!text || !amount || lots.length === 0) return;
+    const lower = text.toLowerCase().trim();
+    let matchedLot: Lot | undefined;
+    // Try #number
+    const hashMatch = lower.match(/#(\d+)/);
+    if (hashMatch) {
+      const num = parseInt(hashMatch[1], 10);
+      matchedLot = sortedLots[num - 1];
+    }
+    // Try lot name (substring match, longest name first for specificity)
+    if (!matchedLot) {
+      const sortedByNameLen = [...lots].sort((a, b) => b.name.length - a.name.length);
+      for (const lot of sortedByNameLen) {
+        if (lot.name && lot.name.length >= 3 && lower.includes(lot.name.toLowerCase())) {
+          matchedLot = lot;
+          break;
+        }
+      }
+    }
+    if (matchedLot) {
+      setLots((l) => l.map((x) => x.id === matchedLot!.id ? { ...x, price: x.price + amount } : x));
+      addHistory(t('auction_auto_match_donation').replace('{0}', text).replace('{1}', matchedLot.name || t('auction_lot_name_placeholder')).replace('{2}', String(amount)));
+    } else {
+      addHistory(t('auction_auto_match_no_lot').replace('{0}', text));
+    }
+  }, [lots, sortedLots, addHistory, t]);
 
   const filteredLots = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -565,10 +576,12 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
                         {filteredLots.map((lot, idx) => (
                           <motion.div
                             key={lot.id}
+                            layout
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
                             exit={{ opacity: 0, height: 0 }}
                             transition={{
+                              layout: { duration: 0.35, ease: 'easeInOut' },
                               opacity: { duration: 0.15 },
                               height: { duration: 0.2, ease: 'easeOut' },
                             }}
@@ -813,15 +826,15 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
                 bids.length === 0 ? (
                   <p className="flex h-full items-center justify-center text-xs text-ink-600">{t('auction_no_bids')}</p>
                 ) : (
-                  <ul className="flex flex-col gap-1.5">
-                    {bids.map((b) => (
-                      <li key={b.id} className="flex items-center justify-between rounded-lg border border-ink-800 bg-ink-950/40 px-3 py-2 text-xs">
-                        <span className="font-medium text-ink-200">{b.user}</span>
-                        <span className="text-ink-500">{b.amount} pts</span>
-                        <span className="text-ink-600 truncate ml-2">{b.lotName}</span>
-                      </li>
-                    ))}
-                  </ul>
+                <ul className="flex flex-col gap-1.5">
+                  {bids.map((b) => (
+                    <li key={b.id} className="flex items-center justify-between rounded-lg border border-ink-800 bg-ink-950/40 px-3 py-2 text-xs">
+                      <span className="font-medium text-ink-200">{b.user}</span>
+                      <span className="text-ink-500">{b.amount} pts</span>
+                      <span className="text-ink-600 truncate ml-2">{b.lotName}</span>
+                    </li>
+                  ))}
+                </ul>
                 )
               ) : history.length === 0 ? (
                 <p className="flex h-full items-center justify-center text-xs text-ink-600">{t('auction_no_history')}</p>
@@ -924,8 +937,6 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
 
                 {/* Donation services */}
                 {(['donation_alerts', 'donatpay'] as const).map((svc) => {
-                  const isConnected = donationServices[svc] ?? false;
-                  const isConnecting = serviceConnecting === svc;
                   return (
                     <div
                       key={svc}
@@ -939,26 +950,12 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
                           <p className="text-sm font-bold text-ink-100">
                             {svc === 'donation_alerts' ? t('auction_service_donation_alerts') : t('auction_service_donatpay')}
                           </p>
-                          <p className="text-xs text-ink-500">
-                            {isConnected ? t('auction_service_connected') : t('auction_service_not_connected')}
-                          </p>
+                          <p className="text-xs text-ink-500">{t('auction_service_donation_soon')}</p>
                         </div>
                       </div>
-                      <button
-                        onClick={() => toggleService(svc)}
-                        disabled={isConnecting}
-                        className={`rounded-lg px-4 py-2 text-xs font-bold transition disabled:opacity-50 ${
-                          isConnected
-                            ? 'border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20'
-                            : 'bg-accent-500 text-ink-950 hover:bg-accent-400'
-                        }`}
-                      >
-                        {isConnecting
-                          ? t('auction_service_connecting')
-                          : isConnected
-                            ? t('auction_service_disconnect')
-                            : t('auction_service_connect')}
-                      </button>
+                      <span className="rounded-lg border border-ink-700 bg-ink-800 px-4 py-2 text-xs font-bold text-ink-500">
+                        {t('auction_service_donation_soon')}
+                      </span>
                     </div>
                   );
                 })}
