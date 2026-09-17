@@ -225,7 +225,7 @@ export function AuctionWheel({ lots, onWinner, onReroll, onEliminated, sidebarCo
 
     const finish = () => {
       if (animRef.current === anim) {
-        try { anim.commitStyles(); } catch {}
+        try { anim.commitStyles(); } catch { /* ignore */ }
         anim.cancel();
         animRef.current = null;
       }

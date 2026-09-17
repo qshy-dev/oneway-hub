@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chat Flakes - TwitchGames</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', sans-serif; overflow: hidden; background: #0f0f1a; }
+  .game-container { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+  .game-canvas { position: absolute; inset: 0; }
+  .game-ui { position: absolute; top: 0; left: 0; right: 0; padding: 20px; display: flex; justify-content: space-between; align-items: center; z-index: 50; }
+  .score-display { background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 18px; color: white; }
+  .controls-hint { background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); padding: 12px 24px; border-radius: 30px; font-size: 14px; color: rgba(255,255,255,0.8); }
+  .flake { position: absolute; top: -30px; pointer-events: none; will-change: transform, opacity; animation: fall linear infinite; }
+  @keyframes fall { to { transform: translateY(calc(100vh + 50px)) rotate(720deg); } }
+  .chat-bubble { position: absolute; background: rgba(124,58,237,0.9); color: white; padding: 6px 12px; border-radius: 16px; font-size: 12px; white-space: nowrap; pointer-events: none; animation: bubbleFloat 4s ease-out forwards; }
+  @keyframes bubbleFloat { to { transform: translateY(-100px); opacity: 0; } }
+</style>
+</head>
+<body>
+  <div class="game-container">
+    <div class="game-canvas" id="gameCanvas"></div>
+    <div class="game-ui">
+      <div class="score-display" id="scoreDisplay">Частиц: 0</div>
+      <div class="controls-hint">Команда чата: !flake</div>
+    </div>
+  </div>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const density = parseFloat(params.get('density')) || 5;
+    const speed = parseFloat(params.get('speed')) || 5;
+    const fade = parseFloat(params.get('fade')) || 50;
+    const theme = params.get('theme') || 'snow';
+
+    const canvas = document.getElementById('gameCanvas');
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    let count = 0;
+    let maxParticles = 100;
+
+    const themeEmojis = {
+      snow: ['❄️', '⭐', '✨', 'mites'],
+      leaves: ['🍂', '🍁', '🌱', '🌾'],
+      hearts: ['💖', '💗', '💕', '❤️']
+    };
+
+    function spawnFlake() {
+      if (count >= maxParticles) return;
+      
+      const flake = document.createElement('div');
+      flake.className = 'flake';
+      const emojis = themeEmojis[theme] || themeEmojis.snow;
+      flake.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      flake.style.left = Math.random() * window.innerWidth + 'px';
+      flake.style.fontSize = (14 + Math.random() * 20) + 'px';
+      flake.style.opacity = 0.6 + Math.random() * 0.4;
+      canvas.appendChild(flake);
+      
+      const duration = 4 + (10 - speed) * 1.5;
+      flake.style.animationDuration = duration + 's';
+      flake.style.animationDelay = Math.random() * 2 + 's';
+      
+      count++;
+      scoreDisplay.textContent = 'Частиц: ' + count;
+      
+      setTimeout(() => {
+        flake.remove();
+        count--;
+        scoreDisplay.textContent = 'Частиц: ' + count;
+      }, duration * 1000 + 2000);
+    }
+
+    function spawnChatBubble() {
+      const bubble = document.createElement('div');
+      bubble.className = 'chat-bubble';
+      const names = ['User', 'Viewer', 'Chat', 'Pal'];
+      bubble.textContent = names[Math.floor(Math.random() * names.length)] + Math.floor(Math.random() * 100);
+      bubble.style.left = Math.random() * (window.innerWidth - 100) + 'px';
+      bubble.style.bottom = '50px';
+      canvas.appendChild(bubble);
+      setTimeout(() => bubble.remove(), 4000);
+    }
+
+    const spawnInterval = Math.max(100, 1000 / density);
+    setInterval(spawnFlake, spawnInterval);
+    setInterval(spawnChatBubble, 3000);
+  </script>
+</body>
+</html>

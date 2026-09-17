@@ -1,0 +1,14 @@
+import { createClient } from '@supabase/supabase-js';
+const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const runtimeSecret = process.env.BOT_RUNTIME_SECRET;
+if (!url || !key || !runtimeSecret) throw new Error('Use node --env-file=.env.bot scripts/check-cloud.mjs');
+const db = createClient(url, key, { auth: { persistSession: false } });
+const { data: profile, error } = await db.from('profiles').select('id').eq('twitch_username', 'qshyou').single();
+if (error) throw error;
+const sync = await fetch(`${url}/functions/v1/twitch-channel-sync`, { method: 'POST', headers: { Authorization: `Bearer ${key}`, apikey: key, 'X-Bot-Runtime-Secret': runtimeSecret, 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: profile.id }) });
+const result = await sync.json();
+console.log(JSON.stringify({ syncStatus: sync.status, followers: result.followers, live: !!result.stream, videos: result.videos?.length, clips: result.clips?.length, schedule: result.schedule?.length, warnings: result.warnings, error: result.error }));
+const publicStats = await db.rpc('get_public_channel_analytics', { p_user_id: profile.id });
+console.log(JSON.stringify({ publicError: publicStats.error?.message, hasPublicSnapshot: !!publicStats.data?.snapshot, subscribersExposed: publicStats.data?.snapshot?.subscribers !== undefined }));
+const anonymous = await fetch(`${url}/functions/v1/twitch-bot-auth`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'check' }) });
+console.log('Unauthenticated bot request status:', anonymous.status);

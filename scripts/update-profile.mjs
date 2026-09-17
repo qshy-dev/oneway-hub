@@ -1,0 +1,10 @@
+import fs from 'node:fs';
+const path = 'src/components/Profile.tsx';
+let source = fs.readFileSync(path, 'utf8');
+source = source.replace("import { useAutoTwitchSync } from '@/lib/useAutoTwitchSync';", "import { Statistics } from './statistics/Statistics';");
+source = source.replace(/  const \{ stats: stats30d[^\n]+\n/, '').replace(/  const \{ sessions \}[^\n]+\n/, '').replace(/  const autoSync[^\n]+\n/, '');
+const start = source.indexOf('      {/* Channel statistics 30d */}');
+const end = source.indexOf('      {/* Subscriptions button */}', start);
+if (start < 0 || end < 0) throw new Error('Profile anchors not found');
+source = source.slice(0, start) + '      {profile?.twitch_username && <Statistics channelProfile={profile} compact />}\n\n' + source.slice(end);
+fs.writeFileSync(path, source);

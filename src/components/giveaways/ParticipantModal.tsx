@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, RefreshCw, MessageSquare, Clock, CheckCircle2, AlertCircle, CalendarDays, Heart, HeartCrack, Loader2 } from 'lucide-react';
+import { X, RefreshCw, MessageSquare, Clock, CheckCircle2, AlertCircle, CalendarDays, Heart, Loader2 } from 'lucide-react';
 import type { Participant, ChatMessage } from './types';
 import { RoleBadges } from './RoleBadges';
 import { Avatar } from './Avatar';

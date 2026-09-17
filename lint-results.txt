@@ -1,0 +1,167 @@
+
+> vite-react-typescript-starter@0.0.0 lint
+> eslint .
+
+
+C:\Users\qshy\Desktop\oneway-hub\.kilo\worktrees\grand-slide\src\App.tsx
+  16:24  error  'useAuth' is defined but never used     @typescript-eslint/no-unused-vars
+  62:52  error  '_crosshair' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\qshy\Desktop\oneway-hub\.kilo\worktrees\grand-slide\src\components\Home.tsx
+  158:9  warning  The 'roadmapItems' array makes the dependencies of useMemo Hook (at line 184) change on every render. Move it inside the useMemo callback. Alternatively, wrap the initialization of 'roadmapItems' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+C:\Users\qshy\Desktop\oneway-hub\.kilo\worktrees\grand-slide\src\components\HorizontalRoulette.tsx
+  162:6  warning  React Hook useCallback has a missing dependency: 'key'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\qshy\Desktop\oneway-hub\.kilo\worktrees\grand-slide\src\components\WheelRoulette.tsx
+  221:44  error    Empty block statement                                                                                                         no-empty
+  226:59  error    Empty block statement                                                                                                         no-empty
+  258:6   warning  React Hook useCallback has missing dependencies: 'activeSectors' and 't'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\qshy\Desktop\oneway-hub\.kilo\worktrees\grand-slide\src\components\auction\Auction.tsx
+    4:17  error  'Gavel' is defined but never used                      @typescript-eslint/no-unused-vars
+    5:65  error  'AlertTriangle' is defined but never used              @typescript-eslint/no-unused-vars
+  179:10  error  'donationServices' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  447:9   error  'deleteArchive' is assigned a value but never used     @typescript-eslint/no-unused-vars
+
+C:\Users\qshy\Desktop\oneway-hub\.kilo\worktrees\grand-slide\src\components\auction\AuctionWheel.tsx
+  151:6   warning  React Hook useEffect has a missing dependency: 'validLots'. Either include it or remove the dependency array        react-hooks/exhaustive-deps
+  228:44  error    Empty block statement                                                                                               no-empty
+  260:6   warning  React Hook useCallback has an unnecessary dependency: 'totalSum'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\qshy\Desktop\oneway-hub\.kilo\worktrees\grand-slide\src\components\giveaways\GiveawaySettingsModal.tsx
+   4:28  error  'ChatterRole' is defined but never used               @typescript-eslint/no-unused-vars
+  47:9   error  'effectiveWeight' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\qshy\Desktop\oneway-hub\.kilo\worktrees\grand-slide\src\components\giveaways\Giveaways.tsx
+    1:34  error  'useMemo' is defined but never used                    @typescript-eslint/no-unused-vars
+    5:3   error  'Wifi' is defined but never used                       @typescript-eslint/no-unused-vars
+    5:18  error  'Loader2' is defined but never used                    @typescript-eslint/no-unused-vars
+    6:3   error  'Users' is defined but never used                      @typescript-eslint/no-unused-vars
+  101:9   error  'timerRafRef' is assigned a value but never used       @typescript-eslint/no-unused-vars
+  230:9   error  'handleDisconnect' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\qshy\Desktop\oneway-hub\.kilo\worktrees\grand-slide\src\components\giveaways\ParticipantModal.tsx
+  3:94  error  'HeartCrack' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\qshy\Desktop\oneway-hub\.kilo\worktrees\grand-slide\src\components\giveaways\ParticipantTable.tsx
+  25:83  error  'channel' is defined but never used               @typescript-eslint/no-unused-vars
+  25:92  error  'onParticipantsUpdate' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\qshy\Desktop\oneway-hub\.kilo\worktrees\grand-slide\src\components\giveaways\useTwitchChat.ts
+    2:41  error    'LogEntry' is defined but never used                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+  198:6   warning  React Hook useCallback has missing dependencies: 'fetchViewers' and 't'. Either include them or remove the dependency array. If 't' changes too often, find the parent component that defines it and wrap that definition in useCallback  react-hooks/exhaustive-deps
+  220:6   warning  React Hook useCallback has an unnecessary dependency: 'onLog'. Either exclude it or remove the dependency array                                                                                                                           react-hooks/exhaustive-deps
+
+C:\Users\qshy\Desktop\oneway-hub\.kilo\worktrees\grand-slide\src\components\rouletteShared.tsx
+   16:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   31:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  156:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  185:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  195:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\qshy\Desktop\oneway-hub\.kilo\worktrees\grand-slide\src\components\statistics\Statistics.tsx
+  1:19  error  'useRef' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\qshy\Desktop\oneway-hub\.kilo\worktrees\grand-slide\src\i18n.tsx
+  998:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\qshy\Desktop\oneway-hub\.kilo\worktrees\grand-slide\src\lib\auth.tsx
+  122:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\qshy\Desktop\oneway-hub\.kilo\worktrees\grand-slide\src\lib\settings.tsx
+  127:71  error    Empty block statement                                                                                                           no-empty
+  179:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\qshy\Desktop\oneway-hub\.kilo\worktrees\grand-slide\src\lib\useUserCrosshairs.ts
+  44:73  error  Empty block statement                         no-empty
+  50:74  error  Empty block statement                         no-empty
+  62:9   error  'persist' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\qshy\Desktop\oneway-hub\.kilo\worktrees\grand-slide\src\lib\userCrosshairsContext.tsx
+  23:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\qshy\Desktop\oneway-hub\src\components\Home.tsx
+  168:9  warning  The 'roadmapItems' array makes the dependencies of useMemo Hook (at line 194) change on every render. Move it inside the useMemo callback. Alternatively, wrap the initialization of 'roadmapItems' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+C:\Users\qshy\Desktop\oneway-hub\src\components\HorizontalRoulette.tsx
+  162:6  warning  React Hook useCallback has a missing dependency: 'key'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\qshy\Desktop\oneway-hub\src\components\Profile.tsx
+    1:101  error  'Radio' is defined but never used                     @typescript-eslint/no-unused-vars
+    1:122  error  'MessageCircle' is defined but never used             @typescript-eslint/no-unused-vars
+    1:137  error  'Play' is defined but never used                      @typescript-eslint/no-unused-vars
+    1:143  error  'BarChart3' is defined but never used                 @typescript-eslint/no-unused-vars
+    1:185  error  'Loader2' is defined but never used                   @typescript-eslint/no-unused-vars
+    1:194  error  'RefreshCw' is defined but never used                 @typescript-eslint/no-unused-vars
+    1:205  error  'Zap' is defined but never used                       @typescript-eslint/no-unused-vars
+    7:3    error  'useChannelStats30d' is defined but never used        @typescript-eslint/no-unused-vars
+    8:3    error  'useStreamSessions' is defined but never used         @typescript-eslint/no-unused-vars
+   43:9    error  'isOwner' is assigned a value but never used          @typescript-eslint/no-unused-vars
+   44:9    error  'eventsubEnabled' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  410:10   error  'StatCard' is defined but never used                  @typescript-eslint/no-unused-vars
+  423:10   error  'StreamCard' is defined but never used                @typescript-eslint/no-unused-vars
+
+C:\Users\qshy\Desktop\oneway-hub\src\components\WheelRoulette.tsx
+  258:6  warning  React Hook useCallback has missing dependencies: 'activeSectors' and 't'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\qshy\Desktop\oneway-hub\src\components\auction\AuctionWheel.tsx
+  151:6  warning  React Hook useEffect has a missing dependency: 'validLots'. Either include it or remove the dependency array        react-hooks/exhaustive-deps
+  260:6  warning  React Hook useCallback has an unnecessary dependency: 'totalSum'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\qshy\Desktop\oneway-hub\src\components\bot\BotChat.tsx
+  40:6  warning  React Hook useCallback has a missing dependency: 'user'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  47:6  warning  React Hook useEffect has a missing dependency: 'user'. Either include it or remove the dependency array    react-hooks/exhaustive-deps
+
+C:\Users\qshy\Desktop\oneway-hub\src\components\giveaways\useTwitchChat.ts
+  198:6  warning  React Hook useCallback has missing dependencies: 'fetchViewers' and 't'. Either include them or remove the dependency array. If 't' changes too often, find the parent component that defines it and wrap that definition in useCallback  react-hooks/exhaustive-deps
+  220:6  warning  React Hook useCallback has an unnecessary dependency: 'onLog'. Either exclude it or remove the dependency array                                                                                                                           react-hooks/exhaustive-deps
+
+C:\Users\qshy\Desktop\oneway-hub\src\components\rouletteShared.tsx
+   16:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   31:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  156:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  185:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  195:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\qshy\Desktop\oneway-hub\src\components\statistics\ChatStats.tsx
+  197:6  warning  React Hook useCallback has missing dependencies: 'loadHistorical' and 'session?.access_token'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\qshy\Desktop\oneway-hub\src\i18n.tsx
+  1356:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\qshy\Desktop\oneway-hub\src\lib\auth.tsx
+  174:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\qshy\Desktop\oneway-hub\src\lib\settings.tsx
+  193:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\qshy\Desktop\oneway-hub\src\lib\useAutoTwitchSync.ts
+  2:10  error  'supabase' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\qshy\Desktop\oneway-hub\src\lib\useChannelAnalytics.ts
+  66:31  warning  The ref value 'generation.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'generation.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
+
+C:\Users\qshy\Desktop\oneway-hub\src\lib\useChannelCalendar.ts
+  68:41  warning  React Hook useEffect has a missing dependency: 'fetchCalendar'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\qshy\Desktop\oneway-hub\src\lib\useChannelHistory.ts
+  57:40  warning  React Hook useEffect has a missing dependency: 'fetchHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\qshy\Desktop\oneway-hub\src\lib\useCommunityData.ts
+  40:42  warning  React Hook useEffect has a missing dependency: 'fetchCommunity'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\qshy\Desktop\oneway-hub\src\lib\userCrosshairsContext.tsx
+  23:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\qshy\Desktop\oneway-hub\supabase\functions\refresh-profile\index.ts
+  387:22   error  'channelData' is assigned a value but never used     @typescript-eslint/no-unused-vars
+  387:35   error  'streamData' is assigned a value but never used      @typescript-eslint/no-unused-vars
+  387:47   error  'followersCount' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  387:63   error  'followedCount' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  387:78   error  'videosData' is assigned a value but never used      @typescript-eslint/no-unused-vars
+  387:90   error  'teamsData' is assigned a value but never used       @typescript-eslint/no-unused-vars
+  387:101  error  'emotesCount' is assigned a value but never used     @typescript-eslint/no-unused-vars
+
+✖ 86 problems (47 errors, 39 warnings)
+

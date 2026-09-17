@@ -1,99 +1,135 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { collectAnalytics } from "../_shared/analytics.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey, Twitch-Eventsub-Message-Id, Twitch-Eventsub-Message-Type, Twitch-Eventsub-Message-Signature, Twitch-Eventsub-Message-Timestamp",
-};
-
-const supabase = createClient(
+const db = createClient(
   Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
+const encoder = new TextEncoder();
 
-Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 200, headers: corsHeaders });
+function hex(bytes: ArrayBuffer) {
+  return [...new Uint8Array(bytes)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function equalConstantTime(left: string, right: string) {
+  if (left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index++) {
+    difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
   }
+  return difference === 0;
+}
 
+async function verify(req: Request, rawBody: string) {
+  const secret = Deno.env.get("EVENTSUB_SECRET");
+  const id = req.headers.get("Twitch-Eventsub-Message-Id") ?? "";
+  const timestamp = req.headers.get("Twitch-Eventsub-Message-Timestamp") ?? "";
+  const received = req.headers.get("Twitch-Eventsub-Message-Signature") ?? "";
+  const messageType = req.headers.get("Twitch-Eventsub-Message-Type") ?? "";
+  if (!secret || !id || !timestamp || !received || !messageType) return null;
+  const time = Date.parse(timestamp);
+  if (!Number.isFinite(time) || Math.abs(Date.now() - time) > 10 * 60 * 1000) return null;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signed = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(id + timestamp + rawBody),
+  );
+  if (!equalConstantTime(`sha256=${hex(signed)}`, received.toLowerCase())) return null;
+  const { data: fresh, error } = await db.rpc("record_twitch_eventsub_message", {
+    p_message_id: id,
+    p_message_type: messageType,
+  });
+  if (error) throw error;
+  return { messageType, fresh: Boolean(fresh) };
+}
+
+async function profileId(twitchId: string) {
+  const { data } = await db
+    .from("profiles")
+    .select("id")
+    .eq("twitch_id", twitchId)
+    .maybeSingle();
+  return data?.id as string | undefined;
+}
+
+Deno.serve(async (req) => {
+  if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
   try {
-    const messageType = req.headers.get("Twitch-Eventsub-Message-Type");
-
-    // Handle webhook verification challenge
-    if (messageType === "webhook_callback_verification") {
-      const body = await req.json();
-      const challenge = body?.challenge;
-      if (challenge) {
-        return new Response(challenge, {
-          status: 200,
-          headers: { "Content-Type": "text/plain" },
-        });
-      }
-      return new Response("No challenge", { status: 400 });
-    }
-
-    // Only process notifications
-    if (messageType !== "notification") {
-      return new Response("OK", { status: 200 });
-    }
-
-    const body = await req.json();
+    const rawBody = await req.text();
+    const verified = await verify(req, rawBody);
+    if (!verified) return new Response("Forbidden", { status: 403 });
+    if (!verified.fresh) return new Response(null, { status: 204 });
+    const body = JSON.parse(rawBody);
     const subscription = body?.subscription;
+
+    if (verified.messageType === "webhook_callback_verification") {
+      await db
+        .from("twitch_eventsub_subscriptions")
+        .update({ status: subscription?.status ?? "enabled" })
+        .eq("subscription_id", subscription?.id ?? "");
+      return new Response(body?.challenge ?? "", {
+        status: body?.challenge ? 200 : 400,
+        headers: { "Content-Type": "text/plain" },
+      });
+    }
+    if (verified.messageType === "revocation") {
+      await db
+        .from("twitch_eventsub_subscriptions")
+        .update({ status: subscription?.status ?? "revoked" })
+        .eq("subscription_id", subscription?.id ?? "");
+      return new Response(null, { status: 204 });
+    }
+    if (verified.messageType !== "notification") {
+      return new Response(null, { status: 204 });
+    }
+
     const event = body?.event;
+    const broadcasterId = event?.broadcaster_user_id as string | undefined;
+    const type = subscription?.type as string | undefined;
+    if (!event || !broadcasterId || !type) return new Response(null, { status: 204 });
+    const userId = await profileId(broadcasterId);
+    if (!userId) return new Response(null, { status: 204 });
 
-    if (!event || !subscription) {
-      return new Response("OK", { status: 200 });
+    if (type === "stream.offline") {
+      await db
+        .from("twitch_stream_sessions")
+        .update({ ended_at: new Date().toISOString() })
+        .eq("user_id", userId)
+        .is("ended_at", null);
+    } else if (["stream.online", "channel.update"].includes(type)) {
+      await collectAnalytics(db, userId);
+    } else if (type === "channel.channel_points_custom_reward_redemption.add") {
+      const redemptionId = event.id as string | undefined;
+      const twitchUserId = event.user_id as string | undefined;
+      const rewardCost = Number(event.reward?.cost ?? 0);
+      if (redemptionId && twitchUserId && rewardCost > 0) {
+        const { error } = await db.rpc("insert_auction_bid_for_streamer", {
+          p_streamer_twitch_id: broadcasterId,
+          p_twitch_user_id: twitchUserId,
+          p_twitch_username: event.user_login ?? "",
+          p_lot_id: null,
+          p_lot_name: null,
+          p_amount: rewardCost,
+          p_input_text: event.user_input ?? "",
+          p_matched: false,
+          p_redemption_id: redemptionId,
+        });
+        if (error) throw error;
+      }
     }
-
-    // Extract redemption data from channel.channel_points_custom_reward_redemption.add event
-    const redemptionId: string | undefined = event?.id;
-    const userInput: string = event?.user_input ?? "";
-    const twitchUserId: string = event?.user_id ?? "";
-    const twitchUsername: string = event?.user_login ?? "";
-    const rewardCost: number = event?.reward?.cost ?? 0;
-
-    if (!redemptionId || !twitchUserId || rewardCost <= 0) {
-      return new Response("OK", { status: 200 });
-    }
-
-    // Look up the streamer's user_id from the subscription's broadcaster_user_id
-    const broadcasterId: string = event?.broadcaster_user_id ?? "";
-
-    // Find the streamer's profile by twitch_id
-    const { data: streamerProfile } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("twitch_id", broadcasterId)
-      .maybeSingle();
-
-    if (!streamerProfile) {
-      return new Response("OK", { status: 200 });
-    }
-
-    // Fetch the streamer's current auction lots from localStorage — but we can't access localStorage server-side.
-    // Instead, we store the raw bid and let the frontend do the lot matching via realtime.
-    // The frontend will receive this bid via realtime and run autoMatchLot.
-
-    // Insert the bid using the SECURITY DEFINER RPC
-    const { error } = await supabase.rpc("insert_auction_bid", {
-      p_twitch_user_id: twitchUserId,
-      p_twitch_username: twitchUsername,
-      p_lot_id: null,
-      p_lot_name: null,
-      p_amount: rewardCost,
-      p_input_text: userInput,
-      p_matched: false,
-      p_redemption_id: redemptionId,
-    });
-
-    if (error) {
-      console.error("Failed to insert auction bid:", error.message);
-    }
-
-    return new Response("OK", { status: 200 });
-  } catch (err) {
-    console.error("Webhook error:", err.message);
-    return new Response("OK", { status: 200, headers: corsHeaders });
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    console.error("EventSub webhook error", error);
+    return new Response("Temporary failure", { status: 500 });
   }
 });

@@ -8,7 +8,109 @@ const corsHeaders = {
 };
 
 const TWITCH_CLIENT_ID = Deno.env.get("TWITCH_CLIENT_ID") ?? "";
-const EVENTSUB_TYPE = "channel.channel_points_custom_reward_redemption.add";
+// EventSub subscription types that cost 0 when the broadcaster has authorized the app
+// (i.e. we hold a user access token with the matching scope).
+const SUBSCRIPTION_TYPES: { type: string; version: string; condition: Record<string, string> }[] = [
+  { type: "stream.online", version: "1", condition: {} },
+  { type: "stream.offline", version: "1", condition: {} },
+  { type: "channel.update", version: "2", condition: {} },
+  { type: "channel.follow", version: "2", condition: {} },
+  { type: "channel.subscribe", version: "1", condition: {} },
+];
+
+async function subscribeAll(
+  supabase: ReturnType<typeof createClient>,
+  broadcasterId: string,
+  accessToken: string,
+  clientId: string,
+  userId: string
+) {
+  const callbackUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/twitch-eventsub-webhook`;
+  const secret = (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "").slice(0, 32);
+
+  const results: { type: string; subscription_id?: string; error?: string }[] = [];
+
+  for (const sub of SUBSCRIPTION_TYPES) {
+    try {
+      const subRes = await fetch("https://api.twitch.tv/helix/eventsub/subscriptions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Client-Id": clientId,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: sub.type,
+          version: sub.version,
+          condition: { broadcaster_user_id: broadcasterId, ...sub.condition },
+          transport: {
+            method: "webhook",
+            callback: callbackUrl,
+            secret,
+          },
+        }),
+      });
+
+      if (!subRes.ok) {
+        const errText = await subRes.text();
+        results.push({ type: sub.type, error: `Twitch API error: ${errText.slice(0, 200)}` });
+        continue;
+      }
+
+      const subData = await subRes.json();
+      const subscriptionId = subData?.data?.[0]?.id;
+      if (subscriptionId) {
+        await supabase.from("twitch_eventsub_subscriptions").upsert(
+          {
+            user_id: userId,
+            subscription_id: subscriptionId,
+            subscription_type: sub.type,
+            status: "enabled",
+          },
+          { onConflict: "user_id, subscription_type" }
+        );
+        results.push({ type: sub.type, subscription_id: subscriptionId });
+      } else {
+        results.push({ type: sub.type, error: "no subscription id returned" });
+      }
+    } catch (err) {
+      results.push({ type: sub.type, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  return results;
+}
+
+async function unsubscribeAll(
+  supabase: ReturnType<typeof createClient>,
+  accessToken: string,
+  clientId: string,
+  userId: string
+) {
+  const { data: subs } = await supabase
+    .from("twitch_eventsub_subscriptions")
+    .select("id, subscription_id")
+    .eq("user_id", userId)
+    .in("status", ["enabled", "pending"]);
+
+  if (subs && subs.length > 0) {
+    for (const sub of subs) {
+      try {
+        await fetch(`https://api.twitch.tv/helix/eventsub/subscriptions?id=${sub.subscription_id}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Client-Id": clientId,
+          },
+        });
+      } catch { /* ignore */ }
+    }
+    await supabase
+      .from("twitch_eventsub_subscriptions")
+      .update({ status: "disabled" })
+      .eq("user_id", userId);
+  }
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -30,11 +132,7 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Verify the user's JWT to get their user_id
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser(token);
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) {
       return new Response(JSON.stringify({ error: "invalid token" }), {
         status: 401,
@@ -42,7 +140,6 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Get the user's profile to find their Twitch ID and access token
     const { data: profile } = await supabase
       .from("profiles")
       .select("twitch_id, twitch_access_token")
@@ -56,101 +153,34 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const twitchToken = profile.twitch_access_token;
-    const broadcasterId = profile.twitch_id;
-
     const url = new URL(req.url);
     const action = url.searchParams.get("action") ?? "subscribe";
 
-    if (action === "subscribe") {
-      // Build the webhook callback URL — must be publicly accessible
-      const callbackUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/twitch-eventsub-webhook`;
-
-      const subRes = await fetch("https://api.twitch.tv/helix/eventsub/subscriptions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${twitchToken}`,
-          "Client-Id": TWITCH_CLIENT_ID,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          type: EVENTSUB_TYPE,
-          version: "1",
-          condition: {
-            broadcaster_user_id: broadcasterId,
-          },
-          transport: {
-            method: "webhook",
-            callback: callbackUrl,
-            secret: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!.slice(0, 32),
-          },
-        }),
-      });
-
-      if (!subRes.ok) {
-        const errText = await subRes.text();
-        return new Response(JSON.stringify({ error: `Twitch API error: ${errText}` }), {
-          status: 502,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const subData = await subRes.json();
-      const subscriptionId = subData?.data?.[0]?.id;
-
-      if (subscriptionId) {
-        // Store the subscription in the database
-        await supabase.from("twitch_eventsub_subscriptions").insert({
-          user_id: user.id,
-          subscription_id: subscriptionId,
-          subscription_type: EVENTSUB_TYPE,
-          status: "pending",
-        });
-      }
-
-      return new Response(JSON.stringify({ success: true, subscription_id: subscriptionId }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     if (action === "unsubscribe") {
-      // Find existing subscriptions for this user
-      const { data: subs } = await supabase
-        .from("twitch_eventsub_subscriptions")
-        .select("id, subscription_id")
-        .eq("user_id", user.id)
-        .eq("subscription_type", EVENTSUB_TYPE)
-        .in("status", ["enabled", "pending"]);
-
-      if (subs && subs.length > 0) {
-        for (const sub of subs) {
-          // Delete from Twitch
-          await fetch(`https://api.twitch.tv/helix/eventsub/subscriptions?id=${sub.subscription_id}`, {
-            method: "DELETE",
-            headers: {
-              "Authorization": `Bearer ${twitchToken}`,
-              "Client-Id": TWITCH_CLIENT_ID,
-            },
-          });
-        }
-
-        // Mark as disabled in DB
-        await supabase
-          .from("twitch_eventsub_subscriptions")
-          .update({ status: "disabled" })
-          .eq("user_id", user.id)
-          .eq("subscription_type", EVENTSUB_TYPE);
-      }
-
+      await unsubscribeAll(supabase, profile.twitch_access_token, TWITCH_CLIENT_ID, user.id);
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(JSON.stringify({ error: "unknown action" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    const results = await subscribeAll(
+      supabase,
+      profile.twitch_id,
+      profile.twitch_access_token,
+      TWITCH_CLIENT_ID,
+      user.id
+    );
+
+    const errors = results.filter((r) => r.error);
+    return new Response(
+      JSON.stringify({
+        success: true,
+        subscriptions: results,
+        error_count: errors.length,
+        errors: errors.length ? errors : undefined,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,

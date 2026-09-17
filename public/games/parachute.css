@@ -1,0 +1,8 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; overflow: hidden; background: #0f0f1a; }
+.game-container { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+.game-container canvas { display: block; }
+.game-ui { position: absolute; top: 0; left: 0; right: 0; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 50; pointer-events: none; }
+.score-display { background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); padding: 10px 20px; border-radius: 30px; font-weight: 700; font-size: 16px; color: #fff; border: 1px solid rgba(255,255,255,0.1); }
+.controls-hint { background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); padding: 10px 20px; border-radius: 30px; font-size: 13px; color: rgba(255,255,255,0.7); }
+.chat-log { position: absolute; top: 65px; left: 16px; z-index: 40; pointer-events: none; max-width: 300px; }

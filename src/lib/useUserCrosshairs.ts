@@ -41,13 +41,13 @@ function loadRows(): UserCrosshair[] {
     return parsed as UserCrosshair[];
   } catch {
     const s = seed();
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch {}
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch { /* ignore */ }
     return s;
   }
 }
 
 function saveRows(rows: UserCrosshair[]) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(rows)); } catch {}
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(rows)); } catch { /* ignore */ }
 }
 
 export function useUserCrosshairs() {
@@ -57,11 +57,6 @@ export function useUserCrosshairs() {
   useEffect(() => {
     setRows(loadRows());
     setLoading(false);
-  }, []);
-
-  const persist = useCallback((next: UserCrosshair[]) => {
-    setRows(next);
-    saveRows(next);
   }, []);
 
   const add = useCallback((player: string, code: string) => {

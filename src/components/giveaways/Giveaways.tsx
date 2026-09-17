@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plug, Play, Square, Trash2, Trophy, RefreshCw, ScrollText,
-  Wifi, WifiOff, Loader2, Eye, EyeOff, ChevronDown, Timer,
-  Users, SlidersHorizontal,
+  WifiOff, Eye, EyeOff, ChevronDown, Timer,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useTwitchChat, type ConnectionStatus } from './useTwitchChat';
 import { StatsCards } from './StatsCards';
@@ -98,7 +98,6 @@ export function Giveaways({ onViewProfile }: { onViewProfile?: (userId: string) 
   const participantsMap = useRef<Map<string, Participant>>(new Map());
   const collectStartRef = useRef<number>(0);
   const collectEndRef = useRef<number>(0);
-  const timerRafRef = useRef<number | null>(null);
   const msgWindowRef = useRef<number[]>([]);
   const phaseRef = useRef<Phase>('setup');
   phaseRef.current = phase;
@@ -225,10 +224,6 @@ export function Giveaways({ onViewProfile }: { onViewProfile?: (userId: string) 
     if (!ch) return;
     connect(ch);
     setPhase('ready');
-  };
-
-  const handleDisconnect = () => {
-    setDisconnectConfirm(true);
   };
 
   const confirmDisconnect = () => {
@@ -708,7 +703,7 @@ export function Giveaways({ onViewProfile }: { onViewProfile?: (userId: string) 
           <ChatFeed messages={chatFeed} connected={connected} livePulse={livePulse} />
         </div>
         <div className="rounded-2xl border border-ink-800 bg-ink-900/50 p-5">
-          <ParticipantTable participants={participants} onSelectParticipant={openParticipantModal} channel={connectedChannel} onParticipantsUpdate={setParticipants} />
+          <ParticipantTable participants={participants} onSelectParticipant={openParticipantModal} />
         </div>
       </div>
 

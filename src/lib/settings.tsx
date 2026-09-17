@@ -12,6 +12,19 @@ const STORAGE_KEY = 'cw_app_settings_v1';
 
 export type Theme = 'dark' | 'light';
 
+function getLogoColor(theme: Theme): string {
+  return theme === 'dark' ? '#ffffff' : '#000000';
+}
+
+function createLogoSvg(color: string): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect x="142" y="112" width="64" height="288" fill="${color}"/><path d="M248 112h74l116 144-116 144h-74l116-144z" fill="${color}"/></svg>`;
+}
+
+function applyFavicon(theme: Theme) {
+  const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+  if (link) link.href = `data:image/svg+xml,${encodeURIComponent(createLogoSvg(getLogoColor(theme)))}`;
+}
+
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
   if (theme === 'light') {
@@ -21,21 +34,25 @@ function applyTheme(theme: Theme) {
     root.classList.add('dark');
     root.classList.remove('light');
   }
+  applyFavicon(theme);
 }
 
 applyTheme('dark');
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const m = hex.replace('#', '');
+  // Validate input: 3 or 6 hex digits, optionally prefixed with '#'
+  const cleanHex = hex.replace('#', '').toLowerCase();
+  if (!/^[0-9a-f]{3}([0-9a-f]{3})?$/.test(cleanHex)) {
+    return { r: 145, g: 70, b: 255 };
+  }
   const full =
-    m.length === 3
-      ? m
+    cleanHex.length === 3
+      ? cleanHex
           .split('')
           .map((c) => c + c)
           .join('')
-      : m;
+      : cleanHex;
   const n = parseInt(full, 16);
-  if (Number.isNaN(n)) return { r: 145, g: 70, b: 255 };
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
 }
 
@@ -71,10 +88,6 @@ function applyAccent(hex: string) {
   root.style.setProperty('--accent-600', channels(shade(hex, -0.14)));
   root.style.setProperty('--accent-700', channels(shade(hex, -0.28)));
   root.style.setProperty('--accent-rgb', channels(hex).replace(/ /g, ', '));
-
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="${hex}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>`;
-  const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-  if (link) link.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
 applyAccent(DEFAULT_COLOR);
@@ -124,7 +137,7 @@ function loadPrefs(): AppPrefs {
 }
 
 function savePrefs(p: AppPrefs) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); } catch {}
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); } catch { /* ignore */ }
 }
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
@@ -154,8 +167,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         accentColor: p.accentColor ?? prev.accentColor,
         theme: p.theme ?? prev.theme,
       };
-      if (p.accentColor) applyAccent(p.accentColor);
-      if (p.theme) applyTheme(p.theme);
+      // Only trigger DOM side-effects when the value actually changed
+      if (next.accentColor !== prev.accentColor) applyAccent(next.accentColor);
+      if (next.theme !== prev.theme) applyTheme(next.theme);
       savePrefs(next);
       return next;
     });

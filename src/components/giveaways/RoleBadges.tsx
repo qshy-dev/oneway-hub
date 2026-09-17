@@ -27,7 +27,6 @@ export function RoleBadges({ roles, size = 14 }: { roles: ChatterRole[]; size?: 
             style={{ width: size, height: size }}
             className={`${meta.className} transition-opacity hover:opacity-100`}
             aria-label={t(meta.titleKey)}
-            title={t(meta.titleKey)}
           />
         );
       })}

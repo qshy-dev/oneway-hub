@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixel Confetti - TwitchGames</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', sans-serif; overflow: hidden; background: #0f0f1a; }
+  .game-container { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+  .game-canvas { position: absolute; inset: 0; }
+  .game-ui { position: absolute; top: 0; left: 0; right: 0; padding: 20px; display: flex; justify-content: space-between; align-items: center; z-index: 50; }
+  .score-display { background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 18px; color: white; }
+  .controls-hint { background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); padding: 12px 24px; border-radius: 30px; font-size: 14px; color: rgba(255,255,255,0.8); }
+  .piece { position: absolute; top: -20px; pointer-events: none; will-change: transform, opacity; animation: fall linear infinite; }
+  @keyframes fall { to { transform: translateY(calc(100vh + 20px)) rotate(720deg); } }
+  .burst { position: absolute; font-size: 32px; pointer-events: none; animation: burst 1s ease-out forwards; }
+  @keyframes burst { 0% { transform: translate(-50%, -50%) scale(0); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(2); opacity: 0; } }
+</style>
+</head>
+<body>
+  <div class="game-container">
+    <div class="game-canvas" id="gameCanvas"></div>
+    <div class="game-ui">
+      <div class="score-display" id="scoreDisplay">Конфетти: 0</div>
+      <div class="controls-hint">Команда чата: !confetti</div>
+    </div>
+  </div>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const count = parseInt(params.get('count')) || 50;
+    const spread = parseFloat(params.get('spread')) || 50;
+    const colorScheme = params.get('colorScheme') || 'rainbow';
+
+    const canvas = document.getElementById('gameCanvas');
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    let total = 0;
+
+    const colorSchemes = {
+      rainbow: ['#ff0000', '#ff9900', '#ffff00', '#00ff00', '#0000ff', '#4b0082', '#8b00ff', '#ff00ff'],
+      warm: ['#ff6b6b', '#feca57', '#ff9ff3', '#f368e0', '#ff9f43'],
+      cool: ['#00d2d3', '#0984e3', '#a29bfe', '#6c5ce7', '#74b9ff']
+    };
+
+    function spawnConfettiBurst() {
+      const colors = colorSchemes[colorScheme] || colorSchemes.rainbow;
+      const pieces = Math.max(5, count / 10);
+      
+      for (let i = 0; i < pieces; i++) {
+        const piece = document.createElement('div');
+        piece.className = 'piece';
+        piece.style.left = (Math.random() * window.innerWidth) + 'px';
+        const color = colors[Math.floor(Math.random() * colors.length)];
+        piece.style.background = color;
+        piece.style.opacity = 0.7 + Math.random() * 0.3;
+        piece.style.width = (6 + Math.random() * 6) + 'px';
+        piece.style.height = (10 + Math.random() * 15) + 'px';
+        piece.style.borderRadius = (Math.random() > 0.5 ? '50%' : '2px');
+        canvas.appendChild(piece);
+        
+        const duration = 3 + Math.random() * 3;
+        const delay = Math.random() * 2;
+        piece.style.animationDuration = duration + 's';
+        piece.style.animationDelay = delay + 's';
+        
+        total++;
+        scoreDisplay.textContent = 'Конфетти: ' + total;
+        
+        setTimeout(() => {
+          piece.remove();
+        }, (duration + delay) * 1000);
+      }
+
+      const burst = document.createElement('div');
+      burst.className = 'burst';
+      burst.textContent = ['🎉', '🎊', '✨', '💫'][Math.floor(Math.random() * 4)];
+      burst.style.left = (Math.random() * window.innerWidth) + 'px';
+      burst.style.top = (Math.random() * window.innerHeight) + 'px';
+      canvas.appendChild(burst);
+      setTimeout(() => burst.remove(), 1000);
+    }
+
+    setInterval(spawnConfettiBurst, 1500);
+  </script>
+</body>
+</html>

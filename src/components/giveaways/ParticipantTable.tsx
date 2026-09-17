@@ -4,7 +4,6 @@ import type { Participant } from './types';
 import { RoleBadges } from './RoleBadges';
 import { Avatar } from './Avatar';
 import { useI18n } from '@/i18n';
-
 const ROW_HEIGHT = 56;
 const VISIBLE_ROWS = 12;
 
@@ -14,15 +13,13 @@ interface ParticipantListProps {
   participants: Participant[];
   onSelectParticipant?: (p: Participant) => void;
   hideHeader?: boolean;
-  channel?: string;
-  onParticipantsUpdate?: (updater: (prev: Participant[]) => Participant[]) => void;
 }
 
 function avatarUrlFor(username: string): string {
   return `https://unavatar.io/twitch/${encodeURIComponent(username)}`;
 }
 
-export function ParticipantTable({ participants, onSelectParticipant, hideHeader, channel, onParticipantsUpdate }: ParticipantListProps) {
+export function ParticipantTable({ participants, onSelectParticipant, hideHeader }: ParticipantListProps) {
   const { t } = useI18n();
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('firstSeenAt');

@@ -1,5 +1,9 @@
 import React, { useMemo, useState, useCallback, useRef } from 'react';
-import { Crosshair as CrosshairIcon, Dices, Settings as SettingsIcon, Gift, PanelLeftClose, PanelLeftOpen, GalleryHorizontal, Disc, Gavel, BarChart3, UserCircle } from 'lucide-react';
+import { paths, navigate, useRoute, type Section } from '@/lib/router';
+import { ProfileRoute, NotFound, ToolsPage, HelpPage } from '@/components/SectionPages';
+import { Wrench, HelpCircle as CircleHelp, BookOpen } from 'lucide-react';
+import { Dices, Settings as SettingsIcon, Gift, PanelLeftClose, PanelLeftOpen, GalleryHorizontal, Disc, Gavel, BarChart3, UserCircle, Gamepad2, Bot } from 'lucide-react';
+import { OneWayLogo } from '@/components/OneWayLogo';
 import { Roulette } from '@/components/Roulette';
 import { Settings } from '@/components/Settings';
 import { Giveaways } from '@/components/giveaways/Giveaways';
@@ -7,7 +11,10 @@ import { Home } from '@/components/Home';
 import { SiteSettings } from '@/components/SiteSettings';
 import { Auction } from '@/components/auction/Auction';
 import { Profile } from '@/components/Profile';
+import { supabase } from '@/lib/supabase';
 import { Statistics } from '@/components/statistics/Statistics';
+import { TwitchGames } from '@/components/TwitchGames';
+import { BotChat } from '@/components/bot/BotChat';
 import { CursorGlow } from '@/components/CursorGlow';
 import { I18nProvider, useI18n } from '@/i18n';
 import { useSettings, SettingsProvider } from '@/lib/settings';
@@ -15,9 +22,7 @@ import { useParallax } from '@/lib/useParallax';
 import { UserCrosshairsProvider, useUserCrosshairsCtx } from '@/lib/userCrosshairsContext';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { type ProCrosshair } from '@/data/proCrosshairs';
-import { type Crosshair } from 'csgo-sharecode';
 
-type Section = 'home' | 'profile' | 'roulette' | 'giveaways' | 'auction' | 'statistics' | 'settings';
 type RouletteTab = 'roulette' | 'settings';
 type RouletteMode = 'horizontal' | 'wheel';
 interface WinRecord { player: string; code: string; }
@@ -26,14 +31,21 @@ function AppInner() {
   const { t } = useI18n();
   const { prefs } = useSettings();
   const { rows } = useUserCrosshairsCtx();
-  const [section, setSection] = useState<Section>('home');
+  const { section, username } = useRoute();
+  const { profile } = useAuth();
+  const setSection = useCallback((next: Section) => {
+    if (next === 'notFound') return;
+    navigate(next === 'profile' && profile?.twitch_username ? `/${profile.twitch_username.toLowerCase()}` : paths[next]);
+  }, [profile?.twitch_username]);
+  const visited = useRef(new Set<Section>());
+  visited.current.add(section);
   const [collapsed, setCollapsed] = useState(true);
   const [rouletteTab, setRouletteTab] = useState<RouletteTab>('roulette');
   const [rouletteMode, setRouletteMode] = useState<RouletteMode>('horizontal');
   const [history, setHistory] = useState<WinRecord[]>([]);
   const [auctionTab, setAuctionTab] = useState<'auction' | 'wheel'>('auction');
   const [homeRestart, setHomeRestart] = useState(0);
-  const [logoSpin, setLogoSpin] = useState(0);
+  const [logoCycle, setLogoCycle] = useState(0);
   const wheelDirtyRef = useRef(false);
   const [pendingTabSwitch, setPendingTabSwitch] = useState<'auction' | 'wheel' | null>(null);
   const [viewingUserId, setViewingUserId] = useState<string | null>(null);
@@ -52,14 +64,14 @@ function AppInner() {
   const restartHome = useCallback(() => {
     setHomeRestart((v) => v + 1);
     setSection('home');
-  }, []);
+  }, [setSection]);
 
   const handleSidebarLogo = useCallback(() => {
-    setLogoSpin((v) => v + 360);
+    setLogoCycle((v) => v + 1);
     restartHome();
   }, [restartHome]);
 
-  const handleWin = (player: string, code: string, _crosshair: Crosshair) => {
+  const handleWin = (player: string, code: string) => {
     setHistory((h) => [{ player, code }, ...h].slice(0, 20));
   };
 
@@ -92,11 +104,8 @@ function AppInner() {
             title={t('site_title')}
           >
             <div className="parallax parallax-logo shrink-0">
-              <div
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-ink-700 bg-ink-900 transition-transform duration-700 ease-out"
-                style={{ transform: `rotate(${logoSpin}deg)` }}
-              >
-                <CrosshairIcon className="h-5 w-5 text-accent-500 transition-transform duration-500 group-hover:scale-110" strokeWidth={2} />
+              <div className="flex h-10 w-10 items-center justify-center">
+                <OneWayLogo key={logoCycle} className="h-5 w-5" />
               </div>
             </div>
             <h1 className={`min-w-0 overflow-hidden whitespace-nowrap text-base font-extrabold leading-none tracking-tight transition-[max-width,opacity] duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${collapsed ? 'max-w-0 opacity-0' : 'max-w-[180px] opacity-100'}`}>
@@ -106,42 +115,59 @@ function AppInner() {
         </div>
 
         {/* Nav */}
-        <nav className="flex flex-1 flex-col gap-1.5 p-3">
+        <nav aria-label="Основная навигация" className="flex flex-1 flex-col gap-1.5 overflow-y-auto p-3">
+          <SidebarItem icon={<Wrench className="h-5 w-5" />} label="Инструменты" active={section === 'tools'} href={paths.tools} collapsed={collapsed} onClick={() => setSection('tools')} />
           <SidebarItem
             icon={<UserCircle className="h-5 w-5" />}
             label={t('section_profile')}
-            active={section === 'profile'}
+            active={section === 'profile'} href={profile?.twitch_username ? '/' + profile.twitch_username.toLowerCase() : paths.profile}
             collapsed={collapsed}
             onClick={() => { setViewingUserId(null); setSection('profile'); }}
           />
           <SidebarItem
             icon={<Dices className="h-5 w-5" />}
             label={t('section_roulette')}
-            active={section === 'roulette'}
+            active={section === 'roulette'} href={paths.roulette}
             collapsed={collapsed}
             onClick={() => setSection('roulette')}
           />
           <SidebarItem
             icon={<Gift className="h-5 w-5" />}
             label={t('section_giveaways')}
-            active={section === 'giveaways'}
+            active={section === 'giveaways'} href={paths.giveaways}
             collapsed={collapsed}
             onClick={() => setSection('giveaways')}
           />
           <SidebarItem
             icon={<Gavel className="h-5 w-5" />}
             label={t('section_auction')}
-            active={section === 'auction'}
+            active={section === 'auction'} href={paths.auction}
             collapsed={collapsed}
             onClick={() => setSection('auction')}
           />
           <SidebarItem
             icon={<BarChart3 className="h-5 w-5" />}
             label={t('section_statistics')}
-            active={section === 'statistics'}
+            active={section === 'statistics'} href={paths.statistics}
             collapsed={collapsed}
             onClick={() => setSection('statistics')}
           />
+          <SidebarItem
+            icon={<Gamepad2 className="h-5 w-5" />}
+            label={t('section_twitchgames')}
+            active={section === 'twitchGames'} href={paths.twitchGames}
+            collapsed={collapsed}
+            onClick={() => setSection('twitchGames')}
+          />
+          <SidebarItem
+            icon={<Bot className="h-5 w-5" />}
+            label={t('section_bot')}
+            active={section === 'bot'} href={paths.bot}
+            collapsed={collapsed}
+            onClick={() => setSection('bot')}
+          />
+          <SidebarItem icon={<CircleHelp className="h-5 w-5" />} label="FAQ" active={section === 'faq'} href={paths.faq} collapsed={collapsed} onClick={() => setSection('faq')} />
+          <SidebarItem icon={<BookOpen className="h-5 w-5" />} label="Документация" active={section === 'docs'} href={paths.docs} collapsed={collapsed} onClick={() => setSection('docs')} />
         </nav>
 
         {/* Site settings */}
@@ -149,7 +175,7 @@ function AppInner() {
           <SidebarItem
             icon={<SettingsIcon className="h-5 w-5" />}
             label={t('settings_button')}
-            active={section === 'settings'}
+            active={section === 'settings'} href={paths.settings}
             collapsed={collapsed}
             onClick={() => setSection('settings')}
           />
@@ -172,23 +198,26 @@ function AppInner() {
 
       {/* Main — takes remaining space; content centers within it */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Top bar */}
-        <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-ink-800/40 bg-ink-950/30 px-6 backdrop-blur-md">
-          <h2 className="text-lg font-bold text-ink-200">
-            {section === 'profile'
-              ? (viewingUserId ? t('profile_title') : t('profile_title'))
-              : section === 'roulette'
-                ? t('section_roulette')
-                : section === 'giveaways'
-                  ? t('section_giveaways')
+          <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-ink-800/40 bg-ink-950/30 px-6 backdrop-blur-md">
+            <h2 className="text-lg font-bold text-ink-200">
+              {section === 'tools' ? 'Инструменты' : section === 'faq' ? 'FAQ' : section === 'docs' ? 'Документация' : section === 'notFound' ? 'Страница не найдена' : section === 'profile'
+                ? t('profile_title')
+                : section === 'roulette'
+                  ? t('section_roulette')
+                  : section === 'giveaways'
+                    ? t('section_giveaways')
                     : section === 'auction'
                       ? t('section_auction')
-                        : section === 'statistics'
-                          ? t('section_statistics')
-                          : section === 'settings'
-                            ? t('site_settings')
-                            : ''}
-          </h2>
+                      : section === 'statistics'
+                        ? t('section_statistics')
+                        : section === 'settings'
+                          ? t('site_settings')
+                          : section === 'twitchGames'
+                            ? t('section_twitchgames')
+                            : section === 'bot'
+                              ? t('section_bot')
+                              : ''}
+            </h2>
 
           {/* Centered mode switcher for roulette */}
           {section === 'roulette' && (
@@ -242,7 +271,7 @@ function AppInner() {
         {/* Content — all sections stay mounted (hidden when inactive) so state is preserved across switches */}
         <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-6 py-8 min-h-0">
           <div className={section === 'profile' ? 'flex flex-1 flex-col min-h-0' : 'hidden'}>
-            <Profile userId={viewingUserId} />
+            {section === 'profile' && (viewingUserId ? <Profile userId={viewingUserId} /> : <ProfileRoute username={username} />)}
           </div>
 
           <div className={section === 'home' ? 'flex flex-1 flex-col min-h-0' : 'hidden'}>
@@ -261,16 +290,20 @@ function AppInner() {
               />
             </div>
             <div className={rouletteTab === 'settings' ? 'block' : 'hidden'}>
-              <Settings />
+              {visited.current.has('roulette') && <Settings />}
             </div>
           </div>
 
           <div className={section === 'giveaways' ? 'block' : 'hidden'}>
-            <Giveaways onViewProfile={(uid) => { setViewingUserId(uid); setSection('profile'); }} />
+            {visited.current.has('giveaways') && <Giveaways onViewProfile={async (uid) => {
+              const { data } = await supabase.rpc('get_public_profile', { p_username: null, p_user_id: uid });
+              if (data?.twitch_username) { setViewingUserId(null); navigate(`/${data.twitch_username}`); }
+              else { setViewingUserId(uid); navigate('/profile'); }
+            }} />}
           </div>
 
           <div className={section === 'auction' ? 'flex flex-1 flex-col min-h-0' : 'hidden'}>
-            <Auction tab={auctionTab} sidebarCollapsed={collapsed} wheelDirtyRef={wheelDirtyRef} />
+            {visited.current.has('auction') && <Auction tab={auctionTab} sidebarCollapsed={collapsed} wheelDirtyRef={wheelDirtyRef} />}
           </div>
 
           {pendingTabSwitch && (
@@ -303,22 +336,29 @@ function AppInner() {
           )}
 
           <div className={section === 'statistics' ? 'block' : 'hidden'}>
-            <Statistics />
+            {section === 'statistics' && <Statistics />}
           </div>
 
           <div className={section === 'settings' ? 'block' : 'hidden'}>
-            <SiteSettings />
+            {section === 'settings' && <SiteSettings />}
           </div>
+
+          <div className={section === 'twitchGames' ? 'flex flex-1 flex-col min-h-0' : 'hidden'}>
+            {visited.current.has('twitchGames') && <TwitchGames />}
+          </div>
+
+          <div className={section === 'bot' ? 'flex flex-1 flex-col min-h-0' : 'hidden'}>
+            {visited.current.has('bot') && <BotChat />}
+          </div>
+          {section === 'tools' && <ToolsPage />}
+          {section === 'faq' && <HelpPage />}
+          {section === 'docs' && <HelpPage docs />}
+          {section === 'notFound' && <NotFound />}
         </main>
 
         {/* Footer */}
         <footer className="flex h-[57px] shrink-0 items-center border-t border-ink-800/40 bg-ink-950/30 px-3 backdrop-blur-md">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-2 gap-y-1 px-1 text-center text-sm">
-            <span className="text-ink-600">
-              {t('made_for')}{' '}
-              <span className="font-semibold text-ink-400">onewaywater</span>
-            </span>
-            <span className="text-ink-700">·</span>
             <span className="text-ink-600">
               {t('created_by')}{' '}
               <a
@@ -380,12 +420,15 @@ export default function App() {
   );
 }
 
-function SidebarItem({ icon, label, active, collapsed, onClick }: {
-  icon: React.ReactNode; label: string; active: boolean; collapsed: boolean; onClick: () => void;
+function SidebarItem({ icon, label, active, collapsed, onClick, href }: {
+  icon: React.ReactNode; label: string; active: boolean; collapsed: boolean; onClick: () => void; href: string;
 }) {
   return (
-    <button
-      onClick={onClick}
+    <a
+      href={href}
+      aria-current={active ? 'page' : undefined}
+      aria-label={label}
+      onClick={e => { if (!e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) { e.preventDefault(); onClick(); } }}
       title={collapsed ? label : undefined}
       className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
         active
@@ -395,7 +438,7 @@ function SidebarItem({ icon, label, active, collapsed, onClick }: {
     >
       <span className="shrink-0">{icon}</span>
       <span className={`min-w-0 overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${collapsed ? 'max-w-0 opacity-0' : 'max-w-[160px] opacity-100'}`}>{label}</span>
-    </button>
+    </a>
   );
 }
 

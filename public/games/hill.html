@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hill Rolling - TwitchGames</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', sans-serif; overflow: hidden; }
+  .game-container { width: 100vw; height: 100vh; position: relative; overflow: hidden; background: linear-gradient(180deg, #87ceeb 0%, #b0e0e6 100%); }
+  .game-canvas { position: absolute; inset: 0; }
+  .game-ui { position: absolute; top: 0; left: 0; right: 0; padding: 20px; display: flex; justify-content: space-between; align-items: center; z-index: 50; }
+  .score-display { background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 18px; color: white; }
+  .controls-hint { background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); padding: 12px 24px; border-radius: 30px; font-size: 14px; color: rgba(255,255,255,0.8); }
+  .hill { position: absolute; bottom: 0; left: 0; right: 0; height: 220px; background: linear-gradient(to bottom, #22c55e, #16a34a); border-radius: 50% 50% 0 0 / 100px 100px 0 0; box-shadow: 0 -10px 30px rgba(0,0,0,0.2); }
+  .hill.snow { background: linear-gradient(to bottom, #e0f2fe, #bae6fd); }
+  .racer { position: absolute; font-size: 32px; will-change: transform; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4)); transition: left 0.05s linear; }
+  .finish-line { position: absolute; right: 0; top: 0; bottom: 0; width: 12px; background: repeating-linear-gradient(45deg, #fbbf24 0 10px, #000 10px 20px); }
+  .finish-flag { position: absolute; right: 12px; top: 20px; font-size: 36px; animation: wave 1s infinite alternate; }
+  @keyframes wave { from { transform: rotate(0); } to { transform: rotate(10deg); } }
+</style>
+</head>
+<body>
+  <div class="game-container">
+    <div class="game-canvas" id="gameCanvas"></div>
+    <div class="hill" id="hill"></div>
+    <div class="finish-line"></div>
+    <div class="finish-flag">🏁</div>
+    <div class="game-ui">
+      <div class="score-display" id="scoreDisplay">Раунд: 1</div>
+      <div class="controls-hint">Команда чата: !roll</div>
+    </div>
+  </div>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const speed = parseFloat(params.get('speed')) || 5;
+    const friction = parseFloat(params.get('friction')) || 0.95;
+    const aiCount = parseInt(params.get('aiCount')) || 5;
+    const command = params.get('command') || '!roll';
+    const theme = params.get('theme') || 'christmas';
+
+    const canvas = document.getElementById('gameCanvas');
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    const hill = document.getElementById('hill');
+    if (theme === 'summer') hill.classList.add('snow');
+    
+    let racers = [];
+    let round = 1;
+    const emojis = ['🛷', '🚗', '🏎️', '🚲', '🛹', '🎿', ' Cassidy', '❄️'];
+
+    function spawnRacers() {
+      racers = [];
+      for (let i = 0; i < aiCount; i++) {
+        const racer = document.createElement('div');
+        racer.className = 'racer';
+        racer.textContent = emojis[i % emojis.length];
+        racer.style.left = '-60px';
+        racer.style.bottom = '120px';
+        racer.style.fontSize = (28 + Math.random() * 8) + 'px';
+        racer.style.filter = 'hue-rotate(' + (i * 360 / aiCount) + 'deg)';
+        canvas.appendChild(racer);
+        racers.push({ el: racer, x: -60, speed: (speed / 5) * (0.3 + Math.random() * 0.4), finished: false });
+      }
+    }
+
+    function animate() {
+      racers.forEach(r => {
+        if (r.finished) return;
+        r.x += r.speed;
+        r.speed *= friction;
+        r.el.style.left = r.x + 'px';
+        
+        const rect = r.el.getBoundingClientRect();
+        if (r.x > window.innerWidth + 50) {
+          r.el.remove();
+          r.finished = true;
+          const finished = racers.filter(r => r.finished).length;
+          if (finished === racers.length) {
+            round++;
+            scoreDisplay.textContent = 'Раунд: ' + round;
+            setTimeout(spawnRacers, 1000);
+          }
+        }
+      });
+      requestAnimationFrame(animate);
+    }
+
+    spawnRacers();
+    animate();
+    setInterval(() => {
+      racers.forEach(r => {
+        if (!r.finished) {
+          r.x += (Math.random() - 0.5) * 30;
+          r.el.style.left = r.x + 'px';
+        }
+      });
+    }, 800);
+  </script>
+</body>
+</html>

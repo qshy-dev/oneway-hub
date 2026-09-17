@@ -13,4 +13,16 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Keep lucide-react tree-shakeable, but vendor chunk for icons used across app
+          vendor: ['react', 'react-dom', 'framer-motion'],
+          supabase: ['@supabase/supabase-js'],
+          games: ['lucide-react'],
+        },
+      },
+    },
+  },
 });

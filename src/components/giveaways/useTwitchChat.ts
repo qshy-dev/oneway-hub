@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ChatMessage, ChatterRole, LogEntry, LogType } from './types';
+import type { ChatMessage, ChatterRole, LogType } from './types';
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
 

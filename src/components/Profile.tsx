@@ -1,14 +1,22 @@
-import { LogOut, Twitch, UserCircle, Calendar, Hash, AtSign, Heart, X, Search, ExternalLink } from 'lucide-react';
+import { LogOut, Twitch, UserCircle, Calendar, Hash, AtSign, Heart, X, Search, ExternalLink, Crown } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useI18n } from '@/i18n';
 import { supabase, type Profile as ProfileRow } from '@/lib/supabase';
+import { Statistics } from './statistics/Statistics';
 
 interface FollowedChannel {
   login: string;
   displayName: string;
   avatar: string | null;
   followedAt: string | null;
+}
+
+function formatDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? '—'
+    : date.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
 export function Profile({ userId }: { userId?: string | null }) {
@@ -21,19 +29,19 @@ export function Profile({ userId }: { userId?: string | null }) {
   const [followsLoading, setFollowsLoading] = useState(false);
   const [followsError, setFollowsError] = useState<string | null>(null);
   const [followsSearch, setFollowsSearch] = useState('');
+  const [registrationDate, setRegistrationDate] = useState('—');
+  const [registrationDateLoading, setRegistrationDateLoading] = useState(false);
 
   const isExternal = !!userId;
   const profile = isExternal ? externalProfile : ownProfile;
   const loading = isExternal ? extLoading : authLoading;
 
+
   useEffect(() => {
     if (!userId) return;
     setExtLoading(true);
     supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle()
+      .rpc('get_public_profile', { p_username: null, p_user_id: userId })
       .then(({ data, error }) => {
         setExtLoading(false);
         if (error || !data) {
@@ -43,6 +51,57 @@ export function Profile({ userId }: { userId?: string | null }) {
         setExternalProfile(data as ProfileRow);
       });
   }, [userId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const cachedDate = profile?.twitch_created_at;
+    const hasValidCachedDate = !!cachedDate && !Number.isNaN(new Date(cachedDate).getTime());
+
+    if (hasValidCachedDate) {
+      setRegistrationDate(formatDate(cachedDate));
+      setRegistrationDateLoading(false);
+      return;
+    }
+
+    if (!profile?.twitch_username) {
+      setRegistrationDate('—');
+      setRegistrationDateLoading(false);
+      return;
+    }
+
+    setRegistrationDate('—');
+    setRegistrationDateLoading(true);
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    const url = `${supabaseUrl}/functions/v1/twitch-user-info?login=${encodeURIComponent(profile.twitch_username)}&_t=${Date.now()}`;
+
+    fetch(url, {
+      headers: {
+        Authorization: `Bearer ${supabaseKey}`,
+      },
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json() as Promise<{ createdAt?: string | null }>;
+      })
+      .then(async (data) => {
+        if (cancelled) return;
+        if (data?.createdAt) {
+          setRegistrationDate(formatDate(data.createdAt));
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) console.warn('Failed to load Twitch registration date:', error);
+      })
+      .finally(() => {
+        if (!cancelled) setRegistrationDateLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isExternal, profile?.id, profile?.twitch_created_at, profile?.twitch_username]);
 
   const loadFollows = async (attempt = 0) => {
     if (!profile?.twitch_username) return;
@@ -108,13 +167,7 @@ export function Profile({ userId }: { userId?: string | null }) {
     );
   }
 
-  const joinedDate = isExternal
-    ? (externalProfile?.created_at
-        ? new Date(externalProfile.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
-        : '—')
-    : (user.created_at
-        ? new Date(user.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
-        : '—');
+  const displayedRegistrationDate = registrationDateLoading ? '…' : registrationDate;
 
   return (
     <div className="flex flex-1 flex-col gap-6 py-4">
@@ -123,14 +176,40 @@ export function Profile({ userId }: { userId?: string | null }) {
         <div className="absolute inset-0 bg-gradient-to-br from-[#9146FF]/5 to-transparent" />
         <div className="relative flex flex-col items-center gap-4 sm:flex-row sm:items-start">
           {profile?.twitch_avatar ? (
-            <img
-              src={profile.twitch_avatar}
-              alt={profile.twitch_display_name ?? profile.twitch_username ?? 'Avatar'}
-              className="h-24 w-24 shrink-0 rounded-2xl border-2 border-ink-700 object-cover"
-            />
+            <div className="relative shrink-0">
+              <img
+                src={profile.twitch_avatar}
+                alt={profile.twitch_display_name ?? profile.twitch_username ?? 'Avatar'}
+                className="h-24 w-24 rounded-full border-2 border-ink-700 object-cover"
+              />
+              {profile?.twitch_is_live !== null && profile && (
+                <span
+                  className={`absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rounded-full px-3 py-1 text-[10px] font-bold whitespace-nowrap transition-all ${
+                    profile.twitch_is_live
+                      ? 'bg-red-500 text-white shadow-[0_0_8px_rgba(239,68,68,0.8),0_0_16px_rgba(239,68,68,0.6)] animate-pulse'
+                      : 'bg-ink-700 text-ink-400'
+                  }`}
+                >
+                  {t(profile.twitch_is_live ? 'profile_live_now' : 'profile_offline')}
+                </span>
+              )}
+            </div>
           ) : (
-            <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl border-2 border-ink-700 bg-ink-900">
-              <UserCircle className="h-12 w-12 text-ink-600" />
+            <div className="relative shrink-0">
+              <div className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-ink-700 bg-ink-900">
+                <UserCircle className="h-12 w-12 text-ink-600" />
+              </div>
+              {profile?.twitch_is_live !== null && profile && (
+                <span
+                  className={`absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rounded-full px-3 py-1 text-[10px] font-bold whitespace-nowrap transition-all ${
+                    profile.twitch_is_live
+                      ? 'bg-red-500 text-white shadow-[0_0_8px_rgba(239,68,68,0.8),0_0_16px_rgba(239,68,68,0.6)] animate-pulse'
+                      : 'bg-ink-700 text-ink-400'
+                  }`}
+                >
+                  {t(profile.twitch_is_live ? 'profile_live_now' : 'profile_offline')}
+                </span>
+              )}
             </div>
           )}
           <div className="flex flex-1 flex-col items-center gap-1 sm:items-start">
@@ -155,6 +234,12 @@ export function Profile({ userId }: { userId?: string | null }) {
               <p className="text-sm text-ink-500">
                 @{profile.twitch_username}
               </p>
+            )}
+            {profile?.twitch_broadcaster_type && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-500/20 px-2.5 py-0.5 text-xs font-semibold text-accent-400">
+                <Crown className="h-3 w-3" />
+                {profile.twitch_broadcaster_type === 'partner' ? 'Partner' : profile.twitch_broadcaster_type === 'affiliate' ? 'Affiliate' : '—'}
+              </span>
             )}
           </div>
           {!isExternal && (
@@ -188,10 +273,12 @@ export function Profile({ userId }: { userId?: string | null }) {
         />
         <InfoRow
           icon={<Calendar className="h-4 w-4" />}
-          label={t('profile_joined')}
-          value={joinedDate}
+          label={t('profile_twitch_created_at')}
+          value={displayedRegistrationDate}
         />
       </div>
+
+      {profile?.twitch_username && <Statistics channelProfile={profile} compact />}
 
       {/* Subscriptions button */}
       {!isExternal && (
@@ -296,3 +383,4 @@ function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string;
     </div>
   );
 }
+

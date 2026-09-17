@@ -11,6 +11,7 @@ type AuthContextValue = {
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   refreshSession: () => Promise<void>;
+  syncTwitchProfile: (session: Session) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -33,12 +34,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(data as Profile | null);
   }, []);
 
+  const syncTwitchProfile = useCallback(async (session: Session) => {
+    if (!session?.user) return;
+    try {
+      // POST with only the Authorization header so the CORS preflight is minimal
+      // and doesn't depend on extra headers (e.g. x-client-info/apikey) that the
+      // browser may have cached as disallowed. The session access token is kept
+      // fresh by getSession() in the mount effect above (auto-refreshes expired
+      // tokens) and by the auth listener on (re)sign-in.
+      const refreshUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/refresh-profile`;
+      const res = await fetch(refreshUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      if (!res.ok) {
+        console.warn(`Twitch profile sync failed: HTTP ${res.status}`);
+        return;
+      }
+      // Re-fetch the profile so the UI reflects any Twitch-side rename
+      // (display name or username) without requiring a page reload.
+      await fetchProfile(session.user.id);
+    } catch (e) {
+      console.warn('Failed to sync Twitch profile:', e);
+    }
+  }, [fetchProfile]);
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    let cancelled = false;
+    supabase.auth.getSession().then(async ({ data }) => {
       setSession(data.session);
       if (data.session?.user) {
-        fetchProfile(data.session.user.id).finally(() => setLoading(false));
-      } else {
+        await fetchProfile(data.session.user.id);
+        // After the interface loads, verify the displayed Twitch name is still
+        // current so renames made on Twitch show up on the site.
+        await syncTwitchProfile(data.session);
+      }
+      if (!cancelled) {
         setLoading(false);
       }
     });
@@ -47,13 +80,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(newSession);
       if (newSession?.user) {
         (async () => {
-          await fetchProfile(newSession.user.id);
-          // Save Twitch provider_token to profile for EventSub subscriptions
-          if (newSession.provider_token) {
-            await supabase
-              .from('profiles')
-              .update({ twitch_access_token: newSession.provider_token })
-              .eq('id', newSession.user.id);
+          try {
+            // Save Twitch provider_token to profile for EventSub subscriptions
+            if (newSession.provider_token) {
+              const { error } = await supabase.rpc('set_own_twitch_access_token', {
+                p_token: newSession.provider_token,
+              });
+              if (error) console.warn('Failed to persist Twitch token:', error.message);
+            }
+            await fetchProfile(newSession.user.id);
+            // Sync new Twitch profile data on a (re)sign-in. The INITIAL_SESSION
+            // that fires on a plain reload is already handled by the mount effect
+            // above, so we skip the duplicate network round-trip here.
+            if (_event !== 'INITIAL_SESSION') {
+              await syncTwitchProfile(newSession);
+            }
+          } catch (e) {
+            console.warn('Auth sync failed:', e);
           }
         })();
       } else {
@@ -62,16 +105,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => {
+      cancelled = true;
       listener.subscription.unsubscribe();
     };
-  }, [fetchProfile]);
+  }, [fetchProfile, syncTwitchProfile]);
 
   const signInWithTwitch = useCallback(async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'twitch',
       options: {
         redirectTo: window.location.origin,
-        scopes: 'user:read:follows',
+        // Scopes for comprehensive profile data:
+        // user:read:follows - followed channels (existing)
+        // moderator:read:followers - follower count (new)
+        // user:read:broadcast - stream info (new)
+        // channel:read:subscriptions - channel config (new)
+        // channel:read:redemptions - channel points redemptions (EventSub cost waiver)
+        scopes: 'user:read:follows moderator:read:followers user:read:broadcast channel:read:subscriptions channel:read:redemptions',
       },
     });
     if (error) {
@@ -112,6 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signOut,
         refreshProfile,
         refreshSession,
+        syncTwitchProfile,
       }}
     >
       {children}

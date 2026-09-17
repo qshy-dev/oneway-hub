@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Play, RotateCcw,
-  Plus, Search, Gavel, Archive, Trash2, Save, X, Clock, History as HistoryIcon, ListOrdered,
-  ScrollText, Minus, Pencil, Check, Eye, EyeOff, Percent, Plug, AlertTriangle, DollarSign, Coins,
+  Plus, Search, Archive, Trash2, Save, X, Clock, History as HistoryIcon, ListOrdered,
+  ScrollText, Minus, Pencil, Check, Eye, EyeOff, Percent, Plug, DollarSign, Coins,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useI18n } from '@/i18n';
@@ -176,7 +176,6 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
   const [showTotalSum, setShowTotalSum] = useState(false);
   const [showPercent, setShowPercent] = useState(false);
   const [servicesModal, setServicesModal] = useState(false);
-  const [donationServices, setDonationServices] = useState<Record<string, boolean>>({});
   const [serviceConnecting, setServiceConnecting] = useState<string | null>(null);
   const [channelPointsEnabled, setChannelPointsEnabled] = useState(false);
   const tickRef = useRef<number | null>(null);
@@ -193,12 +192,11 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
         .from('user_donation_services')
         .select('service, connected')
         .eq('user_id', user.id);
-      if (data) {
-        const map: Record<string, boolean> = {};
-        for (const row of data) map[row.service] = row.connected;
-        setDonationServices(map);
-        if (map['channel_points']) setChannelPointsEnabled(true);
-      }
+        if (data) {
+          const map: Record<string, boolean> = {};
+          for (const row of data) map[row.service] = row.connected;
+          if (map['channel_points']) setChannelPointsEnabled(true);
+        }
     })();
   }, [user]);
 
@@ -377,6 +375,35 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
     }
   }, [lots, sortedLots, addHistory, t]);
 
+  // Load existing bids from DB when the auction starts or user changes
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('auction_bids')
+        .select('id, input_text, amount, twitch_username, lot_id, lot_name')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (error) {
+        console.error('Failed to load bids:', error.message);
+        return;
+      }
+      if (cancelled || !data) return;
+      const loaded: Bid[] = data.map((b) => ({
+        id: b.id,
+        lotId: b.lot_id ?? '',
+        lotName: b.lot_name ?? '',
+        user: b.twitch_username ?? 'unknown',
+        amount: b.amount ?? 0,
+        ts: Date.now(),
+      }));
+      setBids(loaded);
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
   // Realtime: listen for new auction_bids from channel-point redemptions and auto-match to lots
   useEffect(() => {
     if (!user) return;
@@ -385,9 +412,13 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'auction_bids', filter: `user_id=eq.${user.id}` },
         (payload) => {
-          const bid = payload.new as { input_text: string; amount: number; twitch_username: string };
+          const bid = payload.new as { input_text: string; amount: number; twitch_username: string; id: string };
           if (bid?.input_text && bid.amount > 0) {
             autoMatchLot(bid.input_text, bid.amount);
+            setBids((prev) => {
+              if (prev.some((b) => b.id === bid.id)) return prev;
+              return [{ id: bid.id, lotId: '', lotName: '', user: bid.twitch_username ?? 'unknown', amount: bid.amount, ts: Date.now() }, ...prev];
+            });
           }
         }
       )
@@ -442,10 +473,6 @@ export function Auction({ tab, sidebarCollapsed, wheelDirtyRef }: { tab: 'auctio
     setArchive((a) => a.map((x) => (x.id === id ? { ...x, name: trimmed } : x)));
     setRenamingArchiveId(null);
     setRenameArchiveValue('');
-  };
-
-  const deleteArchive = (id: string) => {
-    setArchive((a) => a.filter((x) => x.id !== id));
   };
 
   // Timer segment setters — always operate on total csLeft, recomputing from current display values

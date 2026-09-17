@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixel Maze - TwitchGames</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', sans-serif; overflow: hidden; background: #0f0f1a; }
+  .game-container { width: 100vw; height: 100vh; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+  .game-canvas { position: absolute; inset: 0; }
+  .game-ui { position: absolute; top: 0; left: 0; right: 0; padding: 20px; display: flex; justify-content: space-between; align-items: center; z-index: 50; }
+  .score-display { background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); padding: 12px 24px; border-radius: 30px; font-weight: 700; font-size: 18px; color: white; }
+  .controls-hint { background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); padding: 12px 24px; border-radius: 30px; font-size: 14px; color: rgba(255,255,255,0.8); }
+  .maze { display: grid; gap: 3px; padding: 20px; background: rgba(0,0,0,0.3); border-radius: 16px; }
+  .maze-cell { width: 44px; height: 44px; background: #1a1a2e; transition: all 0.2s; border-radius: 4px; }
+  .maze-cell.path { background: linear-gradient(135deg, #7c3aed, #a855f7); }
+  .maze-cell.player { background: radial-gradient(circle, #ec4899, #be185d); border-radius: 50%; box-shadow: 0 0 12px #ec4899; animation: playerPulse 1s infinite alternate; }
+  .maze-cell.goal { background: radial-gradient(circle, #10b981, #047857); box-shadow: 0 0 12px #10b981; }
+  @keyframes playerPulse { from { transform: scale(0.9); } to { transform: scale(1.1); } }
+  .win-message { position: absolute; font-size: 48px; font-weight: 800; color: #10b981; text-shadow: 0 0 20px rgba(16,185,129,0.8); animation: winPop 0.5s ease; }
+  @keyframes winPop { 0% { transform: scale(0); opacity: 0; } 50% { transform: scale(1.2); } 100% { transform: scale(1); opacity: 1; } }
+</style>
+</head>
+<body>
+  <div class="game-container">
+    <div class="game-canvas" id="gameCanvas"></div>
+    <div class="maze" id="maze"></div>
+    <div class="game-ui">
+      <div class="score-display" id="scoreDisplay">Шаги: 0</div>
+      <div class="controls-hint">Команда чата: !move</div>
+    </div>
+  </div>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const size = params.get('size') || '7x7';
+    const command = params.get('command') || '!move';
+    const dims = size.split('x').map(Number);
+
+    const mazeEl = document.getElementById('maze');
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    let maze = [];
+    let player = { x: 0, y: 0 };
+    let steps = 0;
+    let won = false;
+
+    function initMaze() {
+      mazeEl.style.gridTemplateColumns = 'repeat(' + dims[0] + ', 44px)';
+      maze = [];
+      for (let y = 0; y < dims[1]; y++) {
+        maze[y] = [];
+        for (let x = 0; x < dims[0]; x++) {
+          maze[y][x] = { path: Math.random() > 0.35, player: false, goal: (x === dims[0]-1 && y === dims[1]-1) };
+        }
+      }
+      maze[0][0].path = true;
+      mazeEl.innerHTML = '';
+      for (let y = 0; y < dims[1]; y++) {
+        for (let x = 0; x < dims[0]; x++) {
+          const cell = document.createElement('div');
+          cell.className = 'maze-cell';
+          if (maze[y][x].path) cell.classList.add('path');
+          if (maze[y][x].goal) cell.classList.add('goal');
+          cell.dataset.x = x;
+          cell.dataset.y = y;
+          mazeEl.appendChild(cell);
+        }
+      }
+      updatePlayer();
+    }
+
+    function updatePlayer() {
+      document.querySelectorAll('.maze-cell.player').forEach(c => c.classList.remove('player'));
+      const cells = mazeEl.children;
+      for (let i = 0; i < cells.length; i++) {
+        const x = parseInt(cells[i].dataset.x);
+        const y = parseInt(cells[i].dataset.y);
+        if (x === player.x && y === player.y) cells[i].classList.add('player');
+      }
+    }
+
+    function move() {
+      if (won) return;
+      const dirs = [[0,-1],[1,0],[0,1],[-1,0]];
+      const d = dirs[Math.floor(Math.random() * dirs.length)];
+      const nx = player.x + d[0];
+      const ny = player.y + d[1];
+      if (nx >= 0 && nx < dims[0] && ny >= 0 && ny < dims[1] && maze[ny][nx].path) {
+        player.x = nx;
+        player.y = ny;
+        steps++;
+        scoreDisplay.textContent = 'Шаги: ' + steps;
+        updatePlayer();
+        if (player.x === dims[0]-1 && player.y === dims[1]-1) {
+          won = true;
+          scoreDisplay.textContent = 'Победа! Шаги: ' + steps;
+          const win = document.createElement('div');
+          win.className = 'win-message';
+          win.textContent = '🎉 Победа!';
+          win.style.left = '50%';
+          win.style.top = '50%';
+          win.style.transform = 'translate(-50%, -50%)';
+          mazeEl.appendChild(win);
+        }
+      }
+    }
+
+    initMaze();
+    setInterval(move, 300);
+  </script>
+</body>
+</html>

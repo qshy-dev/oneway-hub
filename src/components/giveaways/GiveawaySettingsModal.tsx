@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Shield, Star, BadgeCheck, User, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { RoleWeights, ChatterRole } from './types';
+import type { RoleWeights } from './types';
 import { DEFAULT_ROLE_WEIGHTS } from './types';
 import { useI18n } from '@/i18n';
 
@@ -43,11 +43,6 @@ export function GiveawaySettingsModal({ open, onClose, weights, onSave }: Giveaw
       setEnabled({ mod: false, vip: false, subscriber: false, default: false });
     }
   }, [open, weights]);
-
-  const effectiveWeight = (key: keyof RoleWeights): number => {
-    if (key === 'default') return enabled.default ? Number(draft.default) || 1 : 1;
-    return enabled[key] ? Number(draft[key]) || 1 : 1;
-  };
 
   const handleSave = () => {
     const sanitized: RoleWeights = {

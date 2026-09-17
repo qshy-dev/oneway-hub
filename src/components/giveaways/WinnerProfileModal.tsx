@@ -24,10 +24,7 @@ export function WinnerProfileModal({ username, onClose, onViewFullProfile }: Win
     setProfile(null);
 
     supabase
-      .from('profiles')
-      .select('*')
-      .ilike('twitch_username', username)
-      .maybeSingle()
+      .rpc('get_public_profile', { p_username: username, p_user_id: null })
       .then(async ({ data, error }) => {
         if (cancelled) return;
         if (!error && data) {
@@ -59,6 +56,43 @@ export function WinnerProfileModal({ username, onClose, onViewFullProfile }: Win
               twitch_broadcaster_type: null,
               created_at: json.createdAt,
               updated_at: json.createdAt,
+              // Extended fields
+              twitch_description: null,
+              twitch_created_at: json.createdAt,
+              twitch_offline_image_url: null,
+              twitch_view_count: null,
+              twitch_channel_language: null,
+              twitch_game_id: null,
+              twitch_game_name: null,
+              twitch_stream_title: null,
+              twitch_stream_delay: null,
+              twitch_stream_tags: null,
+              twitch_is_live: null,
+              twitch_stream_started_at: null,
+              twitch_stream_viewer_count: null,
+              twitch_stream_type: null,
+              twitch_follower_count: null,
+              twitch_following_count: null,
+              twitch_video_count: null,
+              twitch_total_video_views: null,
+              twitch_latest_video_id: null,
+              twitch_latest_video_title: null,
+              twitch_latest_video_url: null,
+              twitch_latest_video_created_at: null,
+              twitch_latest_video_view_count: null,
+              twitch_latest_video_duration: null,
+              twitch_team_names: null,
+              twitch_emote_count: null,
+              twitch_data_updated_at: json.createdAt,
+              twitch_eventsub_enabled: null,
+              twitch_last_stream_id: null,
+              twitch_last_stream_started_at: null,
+              twitch_last_stream_title: null,
+              twitch_last_stream_game_name: null,
+              twitch_last_stream_duration_sec: null,
+              twitch_last_stream_peak_viewers: null,
+              twitch_last_stream_avg_viewers: null,
+              twitch_last_stream_url: null,
             });
             setLoading(false);
           } else {
@@ -79,8 +113,8 @@ export function WinnerProfileModal({ username, onClose, onViewFullProfile }: Win
 
   if (!username) return null;
 
-  const joinedDate = profile?.created_at
-    ? new Date(profile.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+  const twitchRegistrationDate = profile?.twitch_created_at
+    ? new Date(profile.twitch_created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
     : '—';
 
   return (
@@ -161,7 +195,7 @@ export function WinnerProfileModal({ username, onClose, onViewFullProfile }: Win
               <InfoRow icon={<UserCircle className="h-4 w-4" />} label={t('profile_display_name')} value={profile.twitch_display_name ?? '—'} />
               <InfoRow icon={<AtSign className="h-4 w-4" />} label={t('profile_username')} value={profile.twitch_username ?? '—'} />
               <InfoRow icon={<Hash className="h-4 w-4" />} label={t('profile_twitch_id')} value={profile.twitch_id ?? '—'} />
-              <InfoRow icon={<Calendar className="h-4 w-4" />} label={t('profile_joined')} value={joinedDate} />
+              <InfoRow icon={<Calendar className="h-4 w-4" />} label={t('profile_twitch_created_at')} value={twitchRegistrationDate} />
             </div>
 
             {onViewFullProfile && profile.id && (

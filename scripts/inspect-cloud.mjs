@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+import { createClient } from '@supabase/supabase-js';
+const keys = JSON.parse(fs.readFileSync('.env.keys.local', 'utf8').replace(/^\uFEFF/, ''));
+const key = keys.find(k => k.name === 'service_role')?.api_key;
+if (!key || key.includes('*')) throw new Error('Service credential unavailable');
+const url = 'https://xluhkmkckzkhznqzzkth.supabase.co';
+const db = createClient(url, key, { auth: { persistSession: false } });
+const bot = await db.from('bot_config').select('bot_username,connected,scopes,expires_at');
+const channels = await db.from('bot_channels').select('channel_name,enabled,owner_id');
+console.log(JSON.stringify({ bot: bot.data, botError: bot.error?.message, channels: channels.data, channelError: channels.error?.message }));
+fs.writeFileSync('.env.bot', `SUPABASE_URL=${url}\nSUPABASE_SERVICE_ROLE_KEY=${key}\nTWITCH_BOT_USERNAME=onewaymod\n`);
+console.log('Worker environment saved to ignored .env.bot.');

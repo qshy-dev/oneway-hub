@@ -218,12 +218,12 @@ export function WheelRoulette({ items, onWin, history, includeRandom, sidebarCol
 
     const finish = () => {
       if (animRef.current === anim) {
-        try { anim.commitStyles(); } catch {}
+        try { anim.commitStyles(); } catch { /* ignore */ }
         anim.cancel();
         animRef.current = null;
       }
       if (iconAnimRef.current) {
-        try { iconAnimRef.current.commitStyles(); } catch {}
+        try { iconAnimRef.current.commitStyles(); } catch { /* ignore */ }
         iconAnimRef.current.cancel();
         iconAnimRef.current = null;
       }

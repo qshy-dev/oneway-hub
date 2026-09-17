@@ -1,6 +1,7 @@
 import { useState, useLayoutEffect, useRef, useEffect, useMemo } from 'react';
-import { Crosshair as CrosshairIcon, Dices, Gift, ArrowRight, Info, Map, CheckCircle2, Loader2, Circle, ChevronDown, Gavel, BarChart3, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
+import { Dices, Gift, ArrowRight, Info, Map, CheckCircle2, Loader2, Circle, ChevronDown, Gavel, BarChart3, ChevronLeft, ChevronRight, UserCircle } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { OneWayLogo } from '@/components/OneWayLogo';
 import { TwitchIcon } from '@/components/TwitchIcon';
 import { useI18n } from '@/i18n';
 import { useTypewriter } from '@/lib/useTypewriter';
@@ -11,12 +12,11 @@ type HomeSection = 'roulette' | 'giveaways' | 'auction' | 'statistics' | 'profil
 
 export function Home({ onNavigate, active, onLogoClick, restartKey }: { onNavigate: (s: HomeSection) => void; active: boolean; onLogoClick: () => void; restartKey: number }) {
   const { t } = useI18n();
-  const { profile, loading: authLoading, signInWithTwitch, signOut } = useAuth();
+  const { profile, loading: authLoading, signInWithTwitch } = useAuth();
   const [aboutOpen, setAboutOpen] = useState(false);
   const [roadmapOpen, setRoadmapOpen] = useState(false);
   const [roadmapFilters, setRoadmapFilters] = useState<Record<RoadmapStatus, boolean>>({ done: false, wip: true, planned: true });
   const [roadmapPage, setRoadmapPage] = useState(0);
-  const [logoSpin, setLogoSpin] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoScrollPaused = useRef(false);
   const initialScrollSet = useRef(false);
@@ -30,7 +30,6 @@ export function Home({ onNavigate, active, onLogoClick, restartKey }: { onNaviga
   const { display, done, thinking } = useTypewriter(t('site_title'), { typoChance: 20, speed: 95, restartKey });
 
   const handleLogo = () => {
-    setLogoSpin((v) => v + 360);
     onLogoClick();
   };
 
@@ -83,11 +82,22 @@ export function Home({ onNavigate, active, onLogoClick, restartKey }: { onNaviga
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const update = () => setContainerW(el.clientWidth);
-    update();
+
+    let timeoutId: number;
+    const update = () => {
+      clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => {
+        setContainerW(el.clientWidth);
+      }, 100);
+    };
+
+    setContainerW(el.clientWidth); // Initial
     const ro = new ResizeObserver(update);
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      clearTimeout(timeoutId);
+      ro.disconnect();
+    };
   }, []);
 
   // Set initial scroll position to start of middle set
@@ -183,7 +193,7 @@ export function Home({ onNavigate, active, onLogoClick, restartKey }: { onNaviga
   const ROADMAP_PAGE_SIZE = 10;
   const filteredRoadmap = useMemo(() => roadmapItems.filter((item) => roadmapFilters[item.status]), [roadmapItems, roadmapFilters]);
   const roadmapPageCount = Math.max(1, Math.ceil(filteredRoadmap.length / ROADMAP_PAGE_SIZE));
-  const safeRoadmapPage = Math.min(roadmapPage, roadmapPageCount - 1);
+  const safeRoadmapPage = Math.max(0, Math.min(roadmapPage, roadmapPageCount - 1));
   const roadmapPageItems = filteredRoadmap.slice(safeRoadmapPage * ROADMAP_PAGE_SIZE, safeRoadmapPage * ROADMAP_PAGE_SIZE + ROADMAP_PAGE_SIZE);
   const toggleRoadmapFilter = (status: RoadmapStatus) => { setRoadmapFilters((f) => ({ ...f, [status]: !f[status] })); setRoadmapPage(0); };
 
@@ -218,13 +228,12 @@ export function Home({ onNavigate, active, onLogoClick, restartKey }: { onNaviga
             transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
             className="relative mb-8 flex h-24 w-24 items-center justify-center"
           >
-            <div className="pointer-events-none absolute -inset-2 rounded-full bg-accent-500/20 blur-2xl" />
             <button
               onClick={handleLogo}
-              className="parallax parallax-logo group relative flex h-24 w-24 items-center justify-center rounded-3xl border border-ink-700 bg-ink-900"
+              className="parallax parallax-logo flex h-24 w-24 items-center justify-center"
               aria-label={t('site_title')}
             >
-              <CrosshairIcon className="h-12 w-12 text-accent-500 transition-transform duration-700 ease-out group-hover:scale-110" strokeWidth={1.5} style={{ transform: `rotate(${logoSpin}deg)` }} />
+              <OneWayLogo key={restartKey} className="h-12 w-12" />
             </button>
           </motion.div>
 
@@ -260,27 +269,23 @@ export function Home({ onNavigate, active, onLogoClick, restartKey }: { onNaviga
                 {t('auth_loading')}
               </div>
             ) : profile ? (
-              <div className="flex flex-1 items-center justify-center gap-3">
-                {profile.twitch_avatar && (
-                  <img
-                    src={profile.twitch_avatar}
-                    alt=""
-                    onClick={() => onNavigate('profile' as HomeSection)}
-                    className="h-8 w-8 cursor-pointer rounded-full border border-ink-700 transition hover:border-accent-500/50"
-                  />
-                )}
-                <span
-                  onClick={() => onNavigate('profile' as HomeSection)}
-                  className="cursor-pointer text-sm font-semibold text-ink-100 transition hover:text-accent-400"
-                >
-                  @{profile.twitch_username ?? 'user'}
-                </span>
+              <div className="flex flex-1 justify-center">
                 <button
-                  onClick={signOut}
-                  className="flex items-center gap-1.5 rounded-lg border border-ink-700 bg-ink-900 px-3 py-1.5 text-xs font-semibold text-ink-300 transition hover:border-red-500/40 hover:text-red-400"
+                  onClick={() => onNavigate('profile' as HomeSection)}
+                  className="parallax parallax-btn group flex items-center gap-3 rounded-xl bg-ink-900 px-5 py-2.5 text-base font-bold text-ink-200 transition-all duration-200 hover:scale-105 hover:bg-accent-500/10 hover:text-accent-300"
                 >
-                  <LogOut className="h-3.5 w-3.5" />
-                  {t('auth_sign_out')}
+                  {profile.twitch_avatar ? (
+                    <img
+                      src={profile.twitch_avatar}
+                      alt={profile.twitch_display_name || profile.twitch_username || 'User avatar'}
+                      className="h-8 w-8 rounded-full border border-ink-700/50"
+                    />
+                  ) : (
+                    <UserCircle className="h-8 w-8 text-ink-500" />
+                  )}
+                  <span>
+                    {profile.twitch_display_name ?? profile.twitch_username ?? 'user'}
+                  </span>
                 </button>
               </div>
             ) : (
